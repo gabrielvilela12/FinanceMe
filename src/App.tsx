@@ -11,8 +11,10 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile"; // 1. Importe a nova página
 import NotFound from "./pages/NotFound";
-import ProtectedRoute from "./components/ProtectedRoute"; // 1. Importe o novo componente
+import ProtectedRoute from "./components/ProtectedRoute";
+import UpdatePassword from "./pages/UpdatePassword"; // 1. Importe a nova página
 
 const queryClient = new QueryClient();
 
@@ -29,6 +31,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
 
             {/* Rotas Protegidas */}
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route
               path="/dashboard"
               element={
@@ -53,7 +56,16 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            
+            {/* 2. Adicione a nova rota para o Perfil */}
+            <Route
+              path="/perfil"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

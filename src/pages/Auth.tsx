@@ -1,3 +1,5 @@
+// src/pages/Auth.tsx
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
@@ -9,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { DollarSign } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -27,6 +30,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
 
+    // O campo de nome foi removido daqui
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -46,6 +50,8 @@ export default function Auth() {
         title: 'Cadastro realizado!',
         description: 'Verifique seu email para confirmar a conta.'
       });
+      setEmail('');
+      setPassword('');
     }
 
     setLoading(false);
@@ -73,6 +79,36 @@ export default function Auth() {
 
     setLoading(false);
   };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        title: 'Email necessário',
+        description: 'Por favor, preencha o campo de email antes de solicitar a redefinição.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/update-password`,
+    });
+
+    if (error) {
+      toast({
+        title: 'Erro ao enviar email',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } else {
+      toast({
+        title: 'Email enviado!',
+        description: 'Verifique sua caixa de entrada para o link de redefinição de senha.'
+      });
+    }
+    setLoading(false);
+  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -117,6 +153,29 @@ export default function Auth() {
                     required
                   />
                 </div>
+                
+                <div className="text-right">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="link" type="button" className="p-0 h-auto text-xs text-muted-foreground">
+                        Esqueci minha senha
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Enviaremos um link para o seu e-mail ({email || '...'}) para que você possa criar uma nova senha. Confirma?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handlePasswordReset}>Enviar email</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+                
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </Button>
@@ -124,6 +183,7 @@ export default function Auth() {
             </TabsContent>
             
             <TabsContent value="signup">
+              {/* Formulário de cadastro agora só com email e senha */}
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
@@ -159,4 +219,3 @@ export default function Auth() {
     </div>
   );
 }
-
