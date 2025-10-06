@@ -97,7 +97,8 @@ export default function Transactions() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-        const transactionDate = new Date(t.data + 'T00:00:00-03:00');
+        // CORREÇÃO APLICADA AQUI: Adiciona 'T00:00:00' para tratar a data como local
+        const transactionDate = new Date(t.data + 'T00:00:00');
         const from = date?.from ? new Date(date.from.setHours(0, 0, 0, 0)) : null;
         const to = date?.to ? new Date(date.to.setHours(23, 59, 59, 999)) : null;
         const decryptedTipo = getDecryptedText(t.tipo);
@@ -118,7 +119,7 @@ export default function Transactions() {
     }
     const headers = ['Data', 'Tipo', 'Categoria', 'Valor', 'Descrição', 'Recorrência'];
     const rows = filteredTransactions.map(t => [
-      new Date(t.data + 'T00:00:00-03:00').toLocaleDateString('pt-BR'),
+      new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR'),
       getDecryptedText(t.tipo),
       getDecryptedText(t.categoria),
       getNumericValue(t.valor),
@@ -191,7 +192,7 @@ export default function Transactions() {
                   const decryptedTipo = getDecryptedText(transaction.tipo);
                   return (
                   <TableRow key={transaction.id}>
-                    <TableCell>{new Date(transaction.data + 'T00:00:00-03:00').toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{new Date(transaction.data + 'T00:00:00').toLocaleDateString('pt-BR')}</TableCell>
                     <TableCell><span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${decryptedTipo === 'receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{decryptedTipo}</span></TableCell>
                     <TableCell>{getDecryptedText(transaction.categoria)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{getDecryptedText(transaction.descricao)}</TableCell>

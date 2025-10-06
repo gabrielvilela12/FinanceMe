@@ -60,22 +60,18 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  // Função para descriptografar e converter valores de forma segura
   const getNumericValue = (value: string | number) => {
-    if (typeof value === 'number') return value; // Se já for número (dado antigo), retorna
+    if (typeof value === 'number') return value;
     if (!value) return 0;
     
     let decryptedText = '';
     try {
       decryptedText = decrypt(value);
     } catch {
-      // Se a descriptografia falhar, assume que o valor original não era criptografado
       decryptedText = value;
     }
     
     const num = parseFloat(decryptedText);
-
-    // Se a conversão falhar, retorna 0
     return isNaN(num) ? 0 : num;
   };
 
@@ -89,7 +85,8 @@ export default function Dashboard() {
   }
 
   const filteredTransactions = transactions.filter(t => {
-    const transactionDate = new Date(t.data);
+    // CORREÇÃO APLICADA AQUI: Adiciona 'T00:00:00' para tratar a data como local
+    const transactionDate = new Date(t.data + 'T00:00:00');
     const from = date?.from ? new Date(date.from.setHours(0, 0, 0, 0)) : null;
     const to = date?.to ? new Date(date.to.setHours(23, 59, 59, 999)) : null;
 
@@ -130,7 +127,7 @@ export default function Dashboard() {
     const receitas = monthTrans.filter(t => getDecryptedText(t.tipo) === 'receita').reduce((sum, t) => sum + getNumericValue(t.valor), 0);
     const despesas = monthTrans.filter(t => getDecryptedText(t.tipo) === 'despesa').reduce((sum, t) => sum + getNumericValue(t.valor), 0);
     return {
-      month: new Date(month + '-02').toLocaleDateString('pt-BR', { month: 'short' }),
+      month: new Date(month + '-02T00:00:00').toLocaleDateString('pt-BR', { month: 'short', timeZone: 'America/Sao_Paulo' }),
       receitas,
       despesas
     };
@@ -153,7 +150,7 @@ export default function Dashboard() {
             <PopoverTrigger asChild>
               <Button variant={"outline"} className="w-full sm:w-auto justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (date.to ? `${format(date.from, "LLL dd, y")} - ${format(date.to, "LLL dd, y")}` : format(date.from, "LLL dd, y")) : <span>Escolha uma data</span>}
+                {date?.from ? (date.to ? `${format(date.from, "dd/MM/yyyy")} - ${format(date.to, "dd/MM/yyyy")}` : format(date.from, "dd/MM/yyyy")) : <span>Escolha uma data</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
@@ -204,4 +201,3 @@ export default function Dashboard() {
     </Layout>
   );
 }
-
