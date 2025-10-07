@@ -1,5 +1,3 @@
-// src/pages/Projections.tsx
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import Layout from '@/components/Layout';
@@ -12,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 import { Transaction } from '@/types';
-import { addMonths, format, getDaysInMonth, startOfMonth, parseISO } from 'date-fns';
+import { addMonths, format, getDaysInMonth, startOfMonth, parseISO, differenceInCalendarMonths } from 'date-fns';
 
 interface ProjectionData {
   month: string;
@@ -26,6 +24,7 @@ export default function Projections() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectionMonths, setProjectionMonths] = useState<string>('12');
+  const [customProjectionMonths, setCustomProjectionMonths] = useState<string>('18');
   const [initialBalance, setInitialBalance] = useState<string>('');
   const [projectionData, setProjectionData] = useState<ProjectionData[]>([]);
 
@@ -81,13 +80,20 @@ export default function Projections() {
       return;
     }
 
-    const months = parseInt(projectionMonths, 10);
+    const months = projectionMonths === 'custom'
+      ? parseInt(customProjectionMonths, 10)
+      : parseInt(projectionMonths, 10);
+      
+    if (isNaN(months) || months <= 0) {
+        alert('Por favor, insira um número de meses válido.');
+        return;
+    }
+
     const today = new Date();
     let currentBalance = initial;
     const projections: ProjectionData[] = [];
 
     const recurringMonthly = transactions.filter(t => decrypt(t.recorrencia) === 'mensal');
-    const recurringDaily = transactions.filter(t => decrypt(t.recorrencia) === 'diaria');
     const installments = transactions.filter(t => (t.installments ?? 0) > 1 && !t.is_paid);
 
     for (let i = 0; i < months; i++) {
@@ -96,26 +102,21 @@ export default function Projections() {
       let monthlyReceitas = 0;
       let monthlyDespesas = 0;
 
-      // Recorrências Mensais (incluindo cartão)
+      // Recorrências Mensais
       recurringMonthly.forEach(t => {
-        const tipo = decrypt(t.tipo);
-        const valor = getNumericValue(t.valor);
-        const paymentMethod = decrypt(t.payment_method);
+        const startDate = parseISO(t.data);
+        const monthsDiff = differenceInCalendarMonths(targetDate, startDate);
+        const totalInstallments = t.installments; // null para indefinido
 
-        if (tipo === 'receita') {
-            monthlyReceitas += valor;
-        } else if (tipo === 'despesa' || paymentMethod === 'cartao') {
-            monthlyDespesas += valor;
+        if (monthsDiff >= 0 && (totalInstallments === null || monthsDiff < totalInstallments)) {
+          const tipo = decrypt(t.tipo);
+          const valor = getNumericValue(t.valor);
+          if (tipo === 'receita') {
+              monthlyReceitas += valor;
+          } else {
+              monthlyDespesas += valor;
+          }
         }
-      });
-
-      // Recorrências Diárias
-      const daysInMonth = getDaysInMonth(targetDate);
-      recurringDaily.forEach(t => {
-        const tipo = decrypt(t.tipo);
-        const valor = getNumericValue(t.valor);
-        if (tipo === 'receita') monthlyReceitas += valor * daysInMonth;
-        else if (tipo === 'despesa') monthlyDespesas += valor * daysInMonth;
       });
       
       // Parcelas de cartão de crédito
@@ -158,8 +159,8 @@ export default function Projections() {
           <CardHeader>
             <CardTitle>Configurar Projeção</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="grid w-full items-center gap-1.5">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="grid w-full items-center gap-1.5 lg:col-span-1">
               <Label htmlFor="initial-balance">Saldo Inicial (R$)</Label>
               <Input
                 id="initial-balance"
@@ -169,7 +170,7 @@ export default function Projections() {
                 onChange={(e) => setInitialBalance(e.target.value)}
               />
             </div>
-            <div className="grid w-full items-center gap-1.5">
+            <div className="grid w-full items-center gap-1.5 lg:col-span-1">
               <Label htmlFor="projection-months">Período da Projeção</Label>
               <Select value={projectionMonths} onValueChange={setProjectionMonths}>
                 <SelectTrigger id="projection-months">
@@ -179,10 +180,24 @@ export default function Projections() {
                   <SelectItem value="12">Próximos 12 meses</SelectItem>
                   <SelectItem value="24">Próximos 24 meses</SelectItem>
                   <SelectItem value="36">Próximos 36 meses</SelectItem>
+                  <SelectItem value="custom">Personalizado...</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-full md:w-auto gap-2">
+            {projectionMonths === 'custom' && (
+                <div className="grid w-full items-center gap-1.5 lg:col-span-1">
+                    <Label htmlFor="custom-months">Meses (Personalizado)</Label>
+                    <Input
+                        id="custom-months"
+                        type="number"
+                        min="1"
+                        placeholder="Ex: 18"
+                        value={customProjectionMonths}
+                        onChange={(e) => setCustomProjectionMonths(e.target.value)}
+                    />
+                </div>
+            )}
+            <div className="flex w-full gap-2 lg:col-span-2">
                 <Button onClick={() => handleCalculateProjection()} className="w-full">
                 Calcular
                 </Button>

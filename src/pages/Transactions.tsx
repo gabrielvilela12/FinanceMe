@@ -29,8 +29,9 @@ export default function Transactions() {
 
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>('todos');
   const [filterDescricao, setFilterDescricao] = useState<string>('');
-  const [filterCategoria, setFilterCategoria] = useState<string>('Todas');
-  const [filterCard, setFilterCard] = useState<string>('todos');
+  const [filterCategoria, setFilterCategoria] = useState<string>('todas');
+  const [filterCardName, setFilterCardName] = useState<string>('todos');
+  const [filterCardLastFour, setFilterCardLastFour] = useState<string>('todos');
   const [date, setDate] = useState<DateRange | undefined>(undefined);
 
   useEffect(() => {
@@ -110,8 +111,13 @@ export default function Transactions() {
         .map(t => getDecryptedText(t.categoria))
         .filter(cat => cat && cat.trim())
     );
-    return ['Todas', ...Array.from(categories)];
+    return ['todas', ...Array.from(categories)];
   }, [transactions, decrypt]);
+
+  const uniqueCardNames = useMemo(() => {
+    const cardNames = new Set(cards.map(c => c.card_name));
+    return ['todos', ...Array.from(cardNames)];
+  }, [cards]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
@@ -121,14 +127,18 @@ export default function Transactions() {
         const decryptedPaymentMethod = getDecryptedText(t.payment_method);
         const decryptedCategoria = getDecryptedText(t.categoria);
         const decryptedDescricao = getDecryptedText(t.descricao);
+        const cardInfo = cards.find(c => c.id === t.card_id);
+
         const matchDate = (!from || transactionDate >= from) && (!to || transactionDate <= to);
         const matchPaymentMethod = filterPaymentMethod === 'todos' || decryptedPaymentMethod === filterPaymentMethod;
-        const matchCategoria = filterCategoria === 'Todas' || decryptedCategoria === filterCategoria;
+        const matchCategoria = filterCategoria === 'todas' || decryptedCategoria === filterCategoria;
         const matchDescricao = filterDescricao === '' || decryptedDescricao.toLowerCase().includes(filterDescricao.toLowerCase());
-        const matchCard = filterCard === 'todos' || t.card_id === filterCard;
-        return matchDate && matchPaymentMethod && matchCategoria && matchDescricao && matchCard;
+        const matchCardName = filterCardName === 'todos' || (cardInfo && cardInfo.card_name === filterCardName);
+        const matchCardLastFour = filterCardLastFour === 'todos' || (cardInfo && cardInfo.last_four_digits === filterCardLastFour);
+
+        return matchDate && matchPaymentMethod && matchCategoria && matchDescricao && matchCardName && matchCardLastFour;
     });
-  }, [transactions, filterPaymentMethod, filterCategoria, filterDescricao, filterCard, date, decrypt]);
+  }, [transactions, cards, filterPaymentMethod, filterCategoria, filterDescricao, filterCardName, filterCardLastFour, date, decrypt]);
 
   const handleExportCSV = () => {
     // ... (lógica de exportação permanece a mesma)
@@ -150,7 +160,7 @@ export default function Transactions() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 border rounded-lg bg-card">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 p-4 border rounded-lg bg-card">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Filtrar por descrição..." className="pl-8" value={filterDescricao} onChange={(e) => setFilterDescricao(e.target.value)} />
@@ -170,11 +180,22 @@ export default function Transactions() {
               {uniqueCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterCard} onValueChange={setFilterCard}>
+          <Select value={filterCardName} onValueChange={(value) => { setFilterCardName(value); setFilterCardLastFour('todos'); }}>
             <SelectTrigger><SelectValue placeholder="Cartão" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os Cartões</SelectItem>
-              {cards.map(card => <SelectItem key={card.id} value={card.id}>{card.card_name}</SelectItem>)}
+              {uniqueCardNames.map(name => name !== 'todos' && <SelectItem key={name} value={name}>{name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterCardLastFour} onValueChange={setFilterCardLastFour} disabled={filterCardName === 'todos'}>
+            <SelectTrigger><SelectValue placeholder="Final do Cartão" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Finais</SelectItem>
+              {cards.filter(card => card.card_name === filterCardName).map(card => (
+                <SelectItem key={card.id} value={card.last_four_digits}>
+                  {card.last_four_digits}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Popover>
@@ -208,9 +229,7 @@ export default function Transactions() {
               {filteredTransactions.map((transaction) => {
                   const decryptedPaymentMethod = getDecryptedText(transaction.payment_method);
                   const tipo = decryptedPaymentMethod === 'receita' ? 'receita' : 'despesa';
-                  const cardInfo = decryptedPaymentMethod === 'cartao'
-                    ? cards.find(c => c.id === transaction.card_id)
-                    : null;
+                  const cardInfo = cards.find(c => c.id === transaction.card_id);
 
                   return (
                   <TableRow key={transaction.id}>
