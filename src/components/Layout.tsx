@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, CreditCard } from 'lucide-react'; // Importe o ícone do cartão
+import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, CreditCard as CreditCardIcon, Landmark } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,10 +25,14 @@ const NavContent = () => {
         <Receipt className="h-4 w-4 mr-2" />
         Transações
       </Button>
-      {/* Adicione o botão para a página de cartões */}
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/cards')}>
-        <CreditCard className="h-4 w-4 mr-2" />
+        <CreditCardIcon className="h-4 w-4 mr-2" />
         Cartões
+      </Button>
+      {/* Adicione o link para a página de parcelamentos */}
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/installments')}>
+        <Landmark className="h-4 w-4 mr-2" />
+        Parcelamentos
       </Button>
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/configuracoes')}>
         <Settings className="h-4 w-4 mr-2" />
@@ -42,7 +46,7 @@ const NavContent = () => {
   );
 };
 
-// ... o restante do seu componente Layout permanece o mesmo
+// O restante do arquivo permanece o mesmo...
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { session, loading } = useAuth();

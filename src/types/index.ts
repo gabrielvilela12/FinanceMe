@@ -8,10 +8,11 @@ export type Transaction = {
   data: string;
   recorrencia: string | null;
   criado_em: string;
-  payment_method: 'receita' | 'despesa' | 'cartao'; // Novo campo
-  card_id?: string | null; // Novo campo
-  installments?: number | null; // Novo campo
-  current_installment?: number | null; // Novo campo
+  payment_method: 'receita' | 'despesa' | 'cartao';
+  card_id?: string | null;
+  installments?: number | null;
+  current_installment?: number | null;
+  is_paid?: boolean; // Novo campo
 };
 
 export type CreditCard = {
