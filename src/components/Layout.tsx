@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft } from 'lucide-react'; // 1. Importe o ícone de User
+import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, CreditCard } from 'lucide-react'; // Importe o ícone do cartão
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,11 +25,15 @@ const NavContent = () => {
         <Receipt className="h-4 w-4 mr-2" />
         Transações
       </Button>
+      {/* Adicione o botão para a página de cartões */}
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/cards')}>
+        <CreditCard className="h-4 w-4 mr-2" />
+        Cartões
+      </Button>
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/configuracoes')}>
         <Settings className="h-4 w-4 mr-2" />
         Configurações
       </Button>
-      {/* 2. Adicione o novo botão para o Perfil */}
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/perfil')}>
         <User className="h-4 w-4 mr-2" />
         Perfil

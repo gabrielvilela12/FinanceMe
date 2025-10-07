@@ -11,10 +11,11 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Settings from "./pages/Settings";
-import Profile from "./pages/Profile"; // 1. Importe a nova página
+import Profile from "./pages/Profile";
+import Cards from "./pages/Cards"; // Importe a nova página de cartões
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-import UpdatePassword from "./pages/UpdatePassword"; // 1. Importe a nova página
+import UpdatePassword from "./pages/UpdatePassword";
 
 const queryClient = new QueryClient();
 
@@ -56,12 +57,20 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* 2. Adicione a nova rota para o Perfil */}
             <Route
               path="/perfil"
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            {/* Adicione a nova rota para a página de cartões */}
+            <Route
+              path="/cards"
+              element={
+                <ProtectedRoute>
+                  <Cards />
                 </ProtectedRoute>
               }
             />
