@@ -1,25 +1,27 @@
-export type Transaction = {
+export interface Transaction {
   id: string;
   user_id: string;
   tipo: string;
-  categoria: string;
-  valor: string;
-  descricao: string;
-  data: string;
-  recorrencia: string | null;
-  criado_em: string;
   payment_method: 'receita' | 'despesa' | 'cartao';
   card_id?: string | null;
+  categoria: string;
+  valor: string;
+  descricao: string | null;
+  data: string;
+  recorrencia: string;
   installments?: number | null;
   current_installment?: number | null;
-  is_paid?: boolean; // Novo campo
-};
+  is_paid?: boolean;
+}
 
-export type CreditCard = {
+export interface CreditCard {
   id: string;
   user_id: string;
   card_name: string;
-  card_brand: string;
   last_four_digits: string;
+  limite_gastos: string; // Alterado para string para armazenar o valor criptografado
+  closing_day: number;
+  due_day: number;
   created_at: string;
-};
+}
+
