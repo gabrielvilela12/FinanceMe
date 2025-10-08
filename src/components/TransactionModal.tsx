@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { addMonths, format, addDays } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
+import { useGroup } from '@/contexts/GroupContext';
 
 interface TransactionModalProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface TransactionModalProps {
 
 export default function TransactionModal({ open, onClose, transaction, onSuccess }: TransactionModalProps) {
   const { encrypt, decrypt, user } = useAuth();
+  const { selectedGroup } = useGroup();
   const [loading, setLoading] = useState(false);
   
   const [tipo, setTipo] = useState<'receita' | 'despesa'>('despesa');
@@ -54,7 +56,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
 
         setCategoria(transaction.categoria ? decrypt(transaction.categoria) : '');
         setValor(transaction.valor ? decrypt(transaction.valor) : '');
-        setDescricao(transaction.descricao ? decrypt(transaction.descricao).replace(/\s\(\d+\/\d+\)$/, '').trim() : '');
+        setDescricao(transaction.descricao ? decrypt(transaction.descricao) : '');
         setData(transaction.data);
         setRecorrencia(transaction.recorrencia ? decrypt(transaction.recorrencia) : 'unica');
         setSelectedCard(transaction.card_id || undefined);
@@ -126,6 +128,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
       }
 
       const finalPaymentMethod = tipo === 'receita' ? 'receita' : paymentMethod;
+      const groupId = transaction ? transaction.group_id : selectedGroup;
 
       if (recorrencia === 'diaria' && !transaction) {
         const repetitions = parseInt(dailyRepetitions, 10) || 1;
@@ -138,9 +141,10 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
             payment_method: encrypt(finalPaymentMethod),
             categoria: encrypt(categoria.trim()),
             valor: encrypt(parsedValue.toString()),
-            descricao: encrypt(`${descricao.trim()} (${i + 1}/${repetitions})`),
+            descricao: encrypt(descricao.trim()),
             data: format(transactionDate, 'yyyy-MM-dd'),
             recorrencia: encrypt('unica'),
+            group_id: groupId,
           });
         }
         const { error } = await supabase.from('transacoes').insert(transactionsToInsert);
@@ -160,11 +164,12 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
             card_id: selectedCard,
             categoria: encrypt(categoria.trim()),
             valor: encrypt(installmentValue.toFixed(2)),
-            descricao: encrypt(`${descricao.trim()} ${i + 1}/${installments}`),
+            descricao: encrypt(descricao.trim()),
             data: format(installmentDate, 'yyyy-MM-dd'),
             recorrencia: encrypt('unica'),
             installments,
             current_installment: i + 1,
+            group_id: groupId,
           });
         }
         const { error } = await supabase.from('transacoes').insert(transactionsToInsert);
@@ -183,6 +188,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
           recorrencia: encrypt(recorrencia),
           installments: recorrencia === 'mensal' && !isIndefinite ? parseInt(monthlyRepetitions, 10) : (paymentMethod === 'cartao' ? installments : null),
           current_installment: recorrencia === 'mensal' && !isIndefinite ? 1 : (paymentMethod === 'cartao' && installments > 1 ? 1 : null),
+          group_id: groupId,
         };
         const { error } = transaction
           ? await supabase.from('transacoes').update(transactionData).eq('id', transaction.id)
@@ -217,14 +223,12 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      {/* LARGURA DO MODAL AUMENTADA AQUI */}
       <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle>{transaction ? 'Editar Transação' : 'Nova Transação'}</DialogTitle>
           <DialogDescription>Preencha os detalhes da sua movimentação financeira.</DialogDescription>
         </DialogHeader>
 
-        {/* ÁREA DE ROLAGEM COM ESPAÇAMENTO INTERNO PARA CORRIGIR O PROBLEMA DO FOCO */}
         <div className="flex-1 overflow-y-auto px-6">
           <form id="transaction-form" onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

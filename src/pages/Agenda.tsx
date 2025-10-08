@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { Transaction, Appointment } from '@/types';
 import { format, parseISO, isSameDay, getDate, isAfter, differenceInCalendarMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -17,6 +18,7 @@ import { toast } from '@/hooks/use-toast';
 
 export default function Agenda() {
   const { user, decrypt } = useAuth();
+  const { selectedGroup, addRefreshListener } = useGroup();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,10 +33,20 @@ export default function Agenda() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [transRes, apptRes] = await Promise.all([
-      supabase.from('transacoes').select('*').eq('user_id', user.id),
-      supabase.from('agendamentos').select('*').eq('user_id', user.id)
-    ]);
+
+    let transQuery = supabase.from('transacoes').select('*');
+    let apptQuery = supabase.from('agendamentos').select('*');
+
+    if (selectedGroup) {
+      transQuery = transQuery.eq('group_id', selectedGroup);
+      apptQuery = apptQuery.eq('group_id', selectedGroup);
+    } else {
+      transQuery = transQuery.is('group_id', null);
+      apptQuery = apptQuery.is('group_id', null);
+    }
+
+    const [transRes, apptRes] = await Promise.all([transQuery, apptQuery]);
+    
     if (transRes.data) setTransactions(transRes.data as Transaction[]);
     if (apptRes.data) setAppointments(apptRes.data as Appointment[]);
     setLoading(false);
@@ -42,11 +54,24 @@ export default function Agenda() {
   
   useEffect(() => {
     if (user) {
+      const removeListener = addRefreshListener(fetchData);
       fetchData();
+      return () => removeListener();
     }
-  }, [user]);
+  }, [user, selectedGroup, addRefreshListener]);
 
-  const getNumericValue = (value: string) => decrypt(value) ? parseFloat(decrypt(value)) : 0;
+  const getNumericValue = (value: string | number | null | undefined): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    try {
+      const decrypted = decrypt(value);
+      const num = parseFloat(decrypted);
+      return isNaN(num) ? 0 : num;
+    } catch {
+      const num = parseFloat(value);
+      return isNaN(num) ? 0 : num;
+    }
+  };
 
   const dailyItems = useMemo(() => {
     if (!selectedDate) return { installments: [], otherExpenses: [], appointments: [] };
@@ -193,7 +218,6 @@ export default function Agenda() {
                         <div key={item.id} className="flex justify-between items-center text-sm cursor-pointer hover:bg-muted/50 p-2 rounded-md" onClick={() => handleViewDetails(item)}>
                           <div className="flex items-center gap-2">
                             <CreditCard className="h-4 w-4 text-muted-foreground"/>
-                            {/* LINHA ALTERADA: Exibe a categoria em vez da descrição */}
                             <p className='truncate'>{decrypt(item.categoria)}</p>
                           </div>
                           <p className="font-medium text-red-600">
@@ -212,9 +236,16 @@ export default function Agenda() {
                                 {item.time && <p className="text-xs text-muted-foreground">{format(parseISO(`1970-01-01T${item.time}`), 'HH:mm')}</p>}
                             </div>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleEditAppointment(item)}}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleDeleteAppointment(item.id)}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <div className="flex items-center">
+                            {item.valor && (
+                              <p className="font-medium text-red-500 mr-2">
+                                - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.valor)}
+                              </p>
+                            )}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleEditAppointment(item)}}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleDeleteAppointment(item.id)}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
                           </div>
                         </div>
                       ))}

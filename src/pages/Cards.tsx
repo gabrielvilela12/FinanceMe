@@ -110,6 +110,10 @@ export default function Cards() {
         toast({ title: 'Campos obrigatórios', description: 'Por favor, preencha todos os campos.', variant: 'destructive' });
         return;
     }
+    if (lastFourDigits.length !== 4) {
+        toast({ title: 'Dígitos inválidos', description: 'Os 4 últimos dígitos do cartão devem ser preenchidos.', variant: 'destructive' });
+        return;
+    }
     const parsedLimit = parseFloat(limit);
     const parsedClosingDay = parseInt(closingDay, 10);
     const parsedDueDay = parseInt(dueDay, 10);

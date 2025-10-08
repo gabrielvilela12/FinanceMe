@@ -13,7 +13,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle2 } from 'lucide-react'; // Ícone para compras quitadas
+import { CheckCircle2 } from 'lucide-react';
+import { getCategoryColor } from '@/lib/colors';
 
 export default function Installments() {
   const { user, decrypt } = useAuth();
@@ -103,18 +104,19 @@ export default function Installments() {
               const baseDescription = getDecryptedText(first.descricao).replace(/\s\d+\/\d+$/, '').trim();
               const isFullyPaid = paidCount === first.installments;
               const nextUnpaidInstallment = group.find(t => !t.is_paid);
+              const category = getDecryptedText(first.categoria);
+              const categoryColor = getCategoryColor(category);
 
               return (
                 <Card 
                   key={index} 
                   onClick={() => openModalWithGroup(group)} 
-                  className={`cursor-pointer hover:border-primary transition-all flex flex-col ${isFullyPaid ? 'opacity-60' : ''}`}
+                  className={`cursor-pointer hover:ring-2 hover:ring-primary transition-all flex flex-col overflow-hidden ${isFullyPaid ? 'opacity-60' : ''}`}
                 >
-                  <CardHeader>
+                  <CardHeader style={{ backgroundColor: categoryColor }}>
                     <div className="flex justify-between items-start gap-2">
-                      {/* LINHA ALTERADA: Reduzido o tamanho da fonte do título */}
-                      <CardTitle className="truncate pr-2 text-lg font-semibold">{baseDescription}</CardTitle>
-                      <Badge variant="outline">{getDecryptedText(first.categoria)}</Badge>
+                      <CardTitle className="truncate pr-2 text-lg font-semibold text-white">{baseDescription}</CardTitle>
+                      <Badge variant="outline" className="border-white/50 bg-white/20 text-white">{category}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col justify-between">
@@ -124,7 +126,7 @@ export default function Installments() {
                           <p className="font-semibold text-green-600">Totalmente Pago</p>
                       </div>
                     ) : (
-                      <div className="space-y-1">
+                      <div className="space-y-1 pt-6"> {/* Adicionado pt-6 para compensar remoção do padding do CardContent */}
                         <p className="text-sm text-muted-foreground">Próxima Parcela:</p>
                         <p className="text-2xl font-bold">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(decrypt(nextUnpaidInstallment?.valor) || '0'))}

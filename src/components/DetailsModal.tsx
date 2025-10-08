@@ -86,6 +86,14 @@ export default function DetailsModal({ isOpen, onClose, item }: DetailsModalProp
                 <span className="text-sm text-muted-foreground">Título</span>
                 <span className="font-semibold">{item.title}</span>
               </div>
+              {item.valor && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Valor</span>
+                  <span className="font-semibold text-red-600">
+                    - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.valor)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Data</span>
                 <span>{format(parseISO(item.date), 'dd/MM/yyyy')}</span>
@@ -96,6 +104,10 @@ export default function DetailsModal({ isOpen, onClose, item }: DetailsModalProp
                   <span>{format(parseISO(`1970-01-01T${item.time}`), 'HH:mm')}</span>
                 </div>
               )}
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Recorrência</span>
+                <span>{item.recorrencia === 'mensal' ? 'Mensal' : 'Único'}</span>
+              </div>
               {item.description && (
                 <div className="pt-2 border-t">
                   <p className="text-sm text-muted-foreground mb-1">Descrição</p>

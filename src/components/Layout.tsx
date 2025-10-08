@@ -5,9 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, CreditCard as CreditCardIcon, Landmark, LineChart, CalendarDays } from 'lucide-react'; // Ícone CalendarDays adicionado
+import { 
+  DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, 
+  CreditCard as CreditCardIcon, Landmark, LineChart, CalendarDays, BarChart, 
+  Target, Wallet, FileText, Users, Mail 
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
+import ViewSwitcher from './ViewSwitcher';
 
 interface LayoutProps {
   children: ReactNode;
@@ -37,10 +42,33 @@ const NavContent = () => {
         <LineChart className="h-4 w-4 mr-2" />
         Projeções
       </Button>
-      {/* BOTÃO DA AGENDA ADICIONADO AQUI */}
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/agenda')}>
         <CalendarDays className="h-4 w-4 mr-2" />
         Agenda
+      </Button>
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/insights')}>
+        <BarChart className="h-4 w-4 mr-2" />
+        Insights
+      </Button>
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/metas')}>
+        <Target className="h-4 w-4 mr-2" />
+        Metas
+      </Button>
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/orcamentos')}>
+        <Wallet className="h-4 w-4 mr-2" />
+        Orçamentos
+      </Button>
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/relatorios')}>
+        <FileText className="h-4 w-4 mr-2" />
+        Relatórios
+      </Button>
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/grupos')}>
+        <Users className="h-4 w-4 mr-2" />
+        Grupos
+      </Button>
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/convites')}>
+        <Mail className="h-4 w-4 mr-2" />
+        Convites
       </Button>
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/configuracoes')}>
         <Settings className="h-4 w-4 mr-2" />
@@ -54,7 +82,6 @@ const NavContent = () => {
   );
 };
 
-// O restante do arquivo permanece o mesmo...
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { session, loading } = useAuth();
@@ -105,10 +132,13 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
 
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Sair</span>
-          </Button>
+          <div className="flex items-center gap-4">
+            <ViewSwitcher />
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Sair</span>
+            </Button>
+          </div>
         </div>
       </header>
 

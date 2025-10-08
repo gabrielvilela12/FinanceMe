@@ -1,3 +1,5 @@
+// src/pages/Dashboard.tsx
+
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
@@ -12,6 +14,8 @@ import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { DateRange } from 'react-day-picker';
 import { format, subMonths, addMonths, startOfToday, isBefore, parseISO, setDate as setDateFn, addDays, differenceInCalendarMonths } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext'; // Importar o hook de grupo
+import { getCategoryColor } from '@/lib/colors';
 
 interface UpcomingTransaction {
   nextDate: Date;
@@ -22,7 +26,8 @@ interface UpcomingTransaction {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { decrypt } = useAuth();
+  const { user, decrypt } = useAuth();
+  const { selectedGroup, addRefreshListener } = useGroup(); // Obter o grupo selecionado
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -31,41 +36,52 @@ export default function Dashboard() {
     to: new Date(),
   });
 
-  useEffect(() => {
-    checkAuth();
-    fetchTransactions();
-
-    const channel = supabase
-      .channel('transacoes-changes-dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, () => {
-        fetchTransactions();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/auth');
-    }
-  };
-
   const fetchTransactions = async () => {
+    if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('transacoes')
-      .select('*')
-      .order('data', { ascending: false });
+    
+    let query = supabase.from('transacoes').select('*');
 
-    if (!error && data) {
+    // Adicionar o filtro de grupo à consulta
+    if (selectedGroup) {
+      query = query.eq('group_id', selectedGroup);
+    } else {
+      query = query.is('group_id', null);
+    }
+
+    const { data, error } = await query.order('data', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching transactions:", error);
+    } else if (data) {
       setTransactions(data as Transaction[]);
     }
     setLoading(false);
   };
+  
+  useEffect(() => {
+    if (user) {
+      // Usar o listener para recarregar os dados quando o grupo mudar
+      const removeListener = addRefreshListener(fetchTransactions);
+      fetchTransactions(); // Busca inicial
+
+      const channel = supabase
+        .channel('transacoes-changes-dashboard')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, (payload) => {
+            const changedGroupId = payload.new.group_id;
+            if ((selectedGroup && changedGroupId === selectedGroup) || (!selectedGroup && !changedGroupId)) {
+                fetchTransactions();
+            }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+        removeListener(); // Limpa o listener ao sair
+      };
+    }
+  }, [user, selectedGroup, addRefreshListener]);
+
 
   const getNumericValue = (value: string | number) => {
     if (typeof value === 'number') return value;
@@ -108,10 +124,9 @@ export default function Dashboard() {
         nextDate = addMonths(nextDate, 1);
       }
       
-      const totalMonths = t.installments; // Usando o campo 'installments' para a contagem
+      const totalMonths = t.installments;
       const monthsPassed = differenceInCalendarMonths(nextDate, originalDate);
       
-      // Se for indefinido (null) ou se ainda não passou do total de meses
       if (totalMonths === null || monthsPassed < totalMonths) {
         if (isBefore(nextDate, thirtyDaysFromNow)) {
           upcoming.push({
@@ -157,7 +172,6 @@ export default function Dashboard() {
     }, {} as Record<string, number>);
 
   const pieData = Object.entries(categoriesData).map(([name, value]) => ({ name, value }));
-  const COLORS = ['#EF5350', '#FF7043', '#FF8A65', '#FFAB91', '#FFCCBC'];
 
   const last6Months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date();
@@ -227,7 +241,7 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie data={pieData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                        {pieData.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                        {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={getCategoryColor(entry.name)} />))}
                       </Pie>
                       <Tooltip formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))} />
                     </PieChart>
@@ -275,4 +289,3 @@ export default function Dashboard() {
     </Layout>
   );
 }
-

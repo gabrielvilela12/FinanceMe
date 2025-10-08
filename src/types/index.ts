@@ -27,7 +27,6 @@ export interface CreditCard {
   created_at: string;
 }
 
-// NOVA INTERFACE ADICIONADA
 export interface Appointment {
   id: string;
   user_id: string;
@@ -36,4 +35,41 @@ export interface Appointment {
   date: string;
   time?: string | null;
   created_at: string;
+  valor?: number | null;
+  recorrencia?: 'unica' | 'mensal' | null;
+  installments?: number | null;
+}
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  nome: string;
+  valor_alvo: number;
+  valor_atual: number;
+  data_alvo?: string | null;
+  created_at: string;
+}
+
+// NOVA INTERFACE ADICIONADA
+export interface Budget {
+  id: string;
+  user_id: string;
+  categoria: string;
+  valor_orcado: number;
+  mes: string; // Formato YYYY-MM
+  created_at: string;
+}
+
+export interface Group {
+  id: string;
+  nome: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface GroupMember {
+  group_id: string;
+  user_id: string;
+  role: 'admin' | 'member';
+  joined_at: string;
 }
