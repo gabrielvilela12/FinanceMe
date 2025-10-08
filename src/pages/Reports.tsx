@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DateRange } from 'react-day-picker';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { Transaction } from '@/types';
 import { format, subMonths, parseISO } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,6 +20,7 @@ import autoTable from 'jspdf-autotable';
 
 export default function Reports() {
   const { user, decrypt } = useAuth();
+  const { selectedGroup } = useGroup();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +34,15 @@ export default function Reports() {
   const fetchTransactions = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase.from('transacoes').select('*').order('data', { ascending: false });
+    let query = supabase.from('transacoes').select('*');
+
+    if (selectedGroup) {
+      query = query.eq('group_id', selectedGroup);
+    } else {
+      query = query.is('group_id', null).eq('user_id', user.id);
+    }
+
+    const { data, error } = await query.order('data', { ascending: false });
     if (data) setTransactions(data as Transaction[]);
     setLoading(false);
   };
@@ -41,7 +51,7 @@ export default function Reports() {
     if (user) {
       fetchTransactions();
     }
-  }, [user]);
+  }, [user, selectedGroup]);
 
   const getNumericValue = (value: string) => decrypt(value) ? parseFloat(decrypt(value)) : 0;
   const getDecryptedText = (text: string | null) => text ? (decrypt(text) || text) : '';

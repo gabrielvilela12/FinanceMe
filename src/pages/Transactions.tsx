@@ -18,10 +18,12 @@ import { toast } from '@/hooks/use-toast';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext';
 
 export default function Transactions() {
   const navigate = useNavigate();
   const { user, decrypt } = useAuth();
+  const { selectedGroup } = useGroup();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,27 +38,6 @@ export default function Transactions() {
   const [filterCardLastFour, setFilterCardLastFour] = useState<string>('todos');
   const [date, setDate] = useState<DateRange | undefined>(undefined);
 
-  useEffect(() => {
-    checkAuth();
-    fetchData();
-    const channel = supabase
-      .channel('transacoes-changes-transactions-page')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, fetchData)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  // EFEITO ADICIONADO PARA RESETAR O FILTRO DE CATEGORIA AO MUDAR DE ABA
-  useEffect(() => {
-    setFilterCategoria('Todas');
-  }, [activeTab]);
-
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) navigate('/auth');
-  };
-
   const fetchData = async () => {
     setLoading(true);
     if (!user) {
@@ -64,8 +45,15 @@ export default function Transactions() {
         return;
     }
 
+    let query = supabase.from('transacoes').select('*');
+    if (selectedGroup) {
+      query = query.eq('group_id', selectedGroup);
+    } else {
+      query = query.is('group_id', null).eq('user_id', user.id);
+    }
+
     const [transactionsRes, cardsRes] = await Promise.all([
-        supabase.from('transacoes').select('*').order('data', { ascending: false }),
+        query.order('data', { ascending: false }),
         supabase.from('credit_cards').select('*').eq('user_id', user.id)
     ]);
 
@@ -77,6 +65,20 @@ export default function Transactions() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchData();
+    const channel = supabase
+      .channel('transacoes-changes-transactions-page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, fetchData)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedGroup]);
+
+  // EFEITO ADICIONADO PARA RESETAR O FILTRO DE CATEGORIA AO MUDAR DE ABA
+  useEffect(() => {
+    setFilterCategoria('Todas');
+  }, [activeTab]);
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('transacoes').delete().eq('id', id);

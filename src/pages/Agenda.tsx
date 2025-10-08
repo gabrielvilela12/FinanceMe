@@ -41,8 +41,8 @@ export default function Agenda() {
       transQuery = transQuery.eq('group_id', selectedGroup);
       apptQuery = apptQuery.eq('group_id', selectedGroup);
     } else {
-      transQuery = transQuery.is('group_id', null);
-      apptQuery = apptQuery.is('group_id', null);
+      transQuery = transQuery.is('group_id', null).eq('user_id', user.id);
+      apptQuery = apptQuery.is('group_id', null).eq('user_id', user.id);
     }
 
     const [transRes, apptRes] = await Promise.all([transQuery, apptQuery]);

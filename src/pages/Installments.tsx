@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Transaction, CreditCard } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -18,25 +19,28 @@ import { getCategoryColor } from '@/lib/colors';
 
 export default function Installments() {
   const { user, decrypt } = useAuth();
+  const { selectedGroup: groupContext } = useGroup();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<Transaction[] | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
+  const [selectedInstallmentGroup, setSelectedInstallmentGroup] = useState<Transaction[] | null>(null);
 
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
 
+    let query = supabase.from('transacoes').select('*').gt('installments', 1);
+
+    if (groupContext) {
+      query = query.eq('group_id', groupContext);
+    } else {
+      query = query.is('group_id', null).eq('user_id', user.id);
+    }
+
     const [transactionsRes, cardsRes] = await Promise.all([
-      supabase.from('transacoes').select('*').gt('installments', 1).order('data', { ascending: true }),
+      query.order('data', { ascending: true }),
       supabase.from('credit_cards').select('*').eq('user_id', user.id)
     ]);
 
@@ -44,6 +48,12 @@ export default function Installments() {
     if (cardsRes.data) setCards(cardsRes.data as CreditCard[]);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user, groupContext]);
 
   const getDecryptedText = (text: string | null) => {
     if (!text) return '';
@@ -57,7 +67,7 @@ export default function Installments() {
       toast({ title: 'Erro ao atualizar pagamento', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: `Parcela marcada como ${isPaid ? 'paga' : 'pendente'}` });
-      setSelectedGroup(prevGroup => 
+      setSelectedInstallmentGroup(prevGroup => 
         prevGroup ? prevGroup.map(t => t.id === transactionId ? { ...t, is_paid: isPaid } : t) : null
       );
       fetchData();
@@ -78,7 +88,7 @@ export default function Installments() {
   }, [transactions, decrypt]);
 
   const openModalWithGroup = (group: Transaction[]) => {
-    setSelectedGroup(group);
+    setSelectedInstallmentGroup(group);
     setIsModalOpen(true);
   };
   
@@ -153,10 +163,10 @@ export default function Installments() {
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-2xl">
-          {selectedGroup && (
+          {selectedInstallmentGroup && (
             <>
               <DialogHeader>
-                <DialogTitle>{getDecryptedText(selectedGroup[0].descricao).replace(/\s\d+\/\d+$/, '').trim()}</DialogTitle>
+                <DialogTitle>{getDecryptedText(selectedInstallmentGroup[0].descricao).replace(/\s\d+\/\d+$/, '').trim()}</DialogTitle>
                 <DialogDescription>
                   Detalhes do parcelamento. Marque as parcelas que já foram pagas.
                 </DialogDescription>
@@ -172,7 +182,7 @@ export default function Installments() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedGroup.map(t => (
+                    {selectedInstallmentGroup.map(t => (
                       <TableRow key={t.id}>
                         <TableCell>
                           <div className="flex items-center space-x-2">

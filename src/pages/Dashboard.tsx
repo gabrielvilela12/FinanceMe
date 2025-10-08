@@ -46,7 +46,7 @@ export default function Dashboard() {
     if (selectedGroup) {
       query = query.eq('group_id', selectedGroup);
     } else {
-      query = query.is('group_id', null);
+      query = query.is('group_id', null).eq('user_id', user.id);
     }
 
     const { data, error } = await query.order('data', { ascending: false });

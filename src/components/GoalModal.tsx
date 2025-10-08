@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { Goal } from '@/types';
 
 interface GoalModalProps {
@@ -19,6 +20,7 @@ interface GoalModalProps {
 
 export default function GoalModal({ open, onClose, goal, onSuccess }: GoalModalProps) {
   const { user } = useAuth();
+  const { selectedGroup } = useGroup();
   const [loading, setLoading] = useState(false);
   
   const [nome, setNome] = useState('');
@@ -55,6 +57,7 @@ export default function GoalModal({ open, onClose, goal, onSuccess }: GoalModalP
       valor_alvo: parseFloat(valorAlvo),
       valor_atual: parseFloat(valorAtual) || 0,
       data_alvo: dataAlvo || null,
+      group_id: goal ? goal.group_id : selectedGroup,
     };
 
     const { error } = goal

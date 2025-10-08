@@ -11,9 +11,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Group } from '@/types';
 import { Plus, Users, Settings } from 'lucide-react';
 import GroupModal from '@/components/GroupModal';
+import { useGroup } from '@/contexts/GroupContext';
 
 export default function Groups() {
   const { user } = useAuth();
+  const { selectedGroup } = useGroup();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,6 +68,8 @@ export default function Groups() {
     setIsModalOpen(true);
   };
 
+  const displayedGroups = selectedGroup ? groups.filter(g => g.id === selectedGroup) : groups;
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -81,16 +85,16 @@ export default function Groups() {
 
         {loading ? (
           <p>Carregando grupos...</p>
-        ) : groups.length === 0 ? (
+        ) : displayedGroups.length === 0 ? (
           <div className="text-center py-20 border rounded-lg">
             <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">Você ainda não faz parte de um grupo</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Crie um grupo para compartilhar finanças com sua família ou amigos.</p>
+            <h3 className="mt-4 text-lg font-semibold">{selectedGroup ? "Grupo não encontrado" : "Você ainda não faz parte de um grupo"}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{selectedGroup ? "O grupo selecionado não foi encontrado ou você não é membro." : "Crie um grupo para compartilhar finanças com sua família ou amigos."}</p>
             <Button className="mt-6" onClick={handleAddNew}>Criar Grupo</Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.map(group => (
+            {displayedGroups.map(group => (
               <Card key={group.id} className="flex flex-col">
                 <CardHeader>
                   <CardTitle>{group.nome}</CardTitle>

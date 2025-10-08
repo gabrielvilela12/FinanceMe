@@ -36,7 +36,7 @@ export default function GroupManagement() {
     if (!user || !groupId) return;
     setLoading(true);
 
-    // Busca detalhes do grupo
+    // 1. Busca detalhes do grupo
     const { data: groupData, error: groupError } = await supabase.from('grupos').select('*').eq('id', groupId).single();
     if (groupError || !groupData) {
       toast({ title: 'Erro', description: 'Grupo não encontrado.', variant: 'destructive' });
@@ -45,15 +45,19 @@ export default function GroupManagement() {
     }
     setGroup(groupData as Group);
 
-    // Busca membros do grupo usando a nova função RPC
-    const { data: membersData, error: membersError } = await supabase.rpc('get_group_members', { group_id_input: groupId });
+    // 2. Busca emails dos membros a partir da nova VIEW
+    const { data: membersData, error: membersError } = await supabase
+      .from('group_members_with_email')
+      .select('email')
+      .eq('group_id', groupId);
+
     if (membersError) {
-      toast({ title: 'Erro ao buscar membros', description: membersError.message, variant: 'destructive' });
+      toast({ title: 'Erro ao buscar membros', description: `Verifique se a VIEW 'group_members_with_email' foi criada corretamente. Detalhe: ${membersError.message}`, variant: 'destructive' });
     } else {
       setMembers(membersData || []);
     }
     
-    // Busca convites pendentes
+    // 3. Busca convites pendentes
     const { data: invitesData } = await supabase.from('convites_grupo').select('id, email_convidado').eq('group_id', groupId).eq('status', 'pendente');
     setInvites(invitesData || []);
 
@@ -118,14 +122,18 @@ export default function GroupManagement() {
                   <CardTitle className="flex items-center"><Users className="h-5 w-5 mr-2" />Membros do Grupo</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                  {members.map(member => (
-                    <div key={member.email} className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                            <AvatarFallback>{member.email.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">{member.email}</span>
-                    </div>
-                  ))}
+                  {members.length > 0 ? (
+                    members.map(member => (
+                      <div key={member.email} className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                              <AvatarFallback>{member.email ? member.email.substring(0, 2).toUpperCase() : '?'}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{member.email}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nenhum membro no grupo ainda.</p>
+                  )}
               </CardContent>
           </Card>
         </div>

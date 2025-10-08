@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGroup } from '@/contexts/GroupContext';
 import { Goal } from '@/types';
-import { Plus, Pencil, Trash2, PiggyBank, Target } from 'lucide-react';
+import { Plus, Pencil, Trash2, Target } from 'lucide-react';
 import GoalModal from '@/components/GoalModal';
 import { format, parseISO } from 'date-fns';
 
@@ -29,7 +29,7 @@ export default function Goals() {
     if (selectedGroup) {
       query = query.eq('group_id', selectedGroup);
     } else {
-      query = query.is('group_id', null);
+      query = query.is('group_id', null).eq('user_id', user.id);
     }
     const { data, error } = await query.order('created_at', { ascending: false });
     

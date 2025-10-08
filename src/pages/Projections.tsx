@@ -11,6 +11,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useAuth } from '@/contexts/AuthContext';
 import { Transaction } from '@/types';
 import { addMonths, format, getDaysInMonth, startOfMonth, parseISO, differenceInCalendarMonths } from 'date-fns';
+import { useGroup } from '@/contexts/GroupContext';
 
 interface ProjectionData {
   month: string;
@@ -21,6 +22,7 @@ interface ProjectionData {
 
 export default function Projections() {
   const { user, decrypt } = useAuth();
+  const { selectedGroup } = useGroup();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectionMonths, setProjectionMonths] = useState<string>('12');
@@ -28,21 +30,29 @@ export default function Projections() {
   const [initialBalance, setInitialBalance] = useState<string>('');
   const [projectionData, setProjectionData] = useState<ProjectionData[]>([]);
 
-  useEffect(() => {
-    if (user) {
-      fetchTransactions();
-    }
-  }, [user]);
-
   const fetchTransactions = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase.from('transacoes').select('*').order('data', { ascending: true });;
+    let query = supabase.from('transacoes').select('*');
+
+    if (selectedGroup) {
+      query = query.eq('group_id', selectedGroup);
+    } else {
+      query = query.is('group_id', null).eq('user_id', user.id);
+    }
+    
+    const { data, error } = await query.order('data', { ascending: true });
     if (data) {
       setTransactions(data as Transaction[]);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (user) {
+      fetchTransactions();
+    }
+  }, [user, selectedGroup]);
 
   const getNumericValue = (value: string | number | null): number => {
     if (value === null || value === undefined) return 0;
