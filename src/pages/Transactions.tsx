@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Pencil, Trash2, Download, Calendar as CalendarIcon, Search, CreditCard as CreditCardIcon } from 'lucide-react';
 import { Transaction, CreditCard } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -27,9 +28,10 @@ export default function Transactions() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
+  const [activeTab, setActiveTab] = useState('todos');
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>('todos');
   const [filterDescricao, setFilterDescricao] = useState<string>('');
-  const [filterCategoria, setFilterCategoria] = useState<string>('todas');
+  const [filterCategoria, setFilterCategoria] = useState<string>('Todas');
   const [filterCardName, setFilterCardName] = useState<string>('todos');
   const [filterCardLastFour, setFilterCardLastFour] = useState<string>('todos');
   const [date, setDate] = useState<DateRange | undefined>(undefined);
@@ -43,6 +45,12 @@ export default function Transactions() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // EFEITO ADICIONADO PARA RESETAR O FILTRO DE CATEGORIA AO MUDAR DE ABA
+  useEffect(() => {
+    setFilterCategoria('Todas');
+  }, [activeTab]);
+
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -105,14 +113,21 @@ export default function Transactions() {
     }
   }
 
+  // LÓGICA DE CATEGORIAS ÚNICAS ATUALIZADA
   const uniqueCategories = useMemo(() => {
+    const filteredByType = transactions.filter(t => {
+      if (activeTab === 'todos') return true;
+      return getDecryptedText(t.tipo) === activeTab;
+    });
+
     const categories = new Set(
-      transactions
+      filteredByType
         .map(t => getDecryptedText(t.categoria))
         .filter(cat => cat && cat.trim())
     );
-    return ['todas', ...Array.from(categories)];
-  }, [transactions, decrypt]);
+    return ['Todas', ...Array.from(categories)];
+  }, [transactions, decrypt, activeTab]);
+
 
   const uniqueCardNames = useMemo(() => {
     const cardNames = new Set(cards.map(c => c.card_name));
@@ -124,24 +139,30 @@ export default function Transactions() {
         const transactionDate = new Date(t.data + 'T00:00:00');
         const from = date?.from ? new Date(date.from.setHours(0, 0, 0, 0)) : null;
         const to = date?.to ? new Date(date.to.setHours(23, 59, 59, 999)) : null;
+        
+        const decryptedTipo = getDecryptedText(t.tipo);
         const decryptedPaymentMethod = getDecryptedText(t.payment_method);
         const decryptedCategoria = getDecryptedText(t.categoria);
         const decryptedDescricao = getDecryptedText(t.descricao);
         const cardInfo = cards.find(c => c.id === t.card_id);
 
+        if (activeTab === 'receita' && decryptedTipo !== 'receita') return false;
+        if (activeTab === 'despesa' && decryptedTipo !== 'despesa') return false;
+        
+        if (activeTab === 'despesa' && filterPaymentMethod !== 'todos' && decryptedPaymentMethod !== filterPaymentMethod) return false;
+        
         const matchDate = (!from || transactionDate >= from) && (!to || transactionDate <= to);
-        const matchPaymentMethod = filterPaymentMethod === 'todos' || decryptedPaymentMethod === filterPaymentMethod;
-        const matchCategoria = filterCategoria === 'todas' || decryptedCategoria === filterCategoria;
+        const matchCategoria = filterCategoria === 'Todas' || decryptedCategoria === filterCategoria;
         const matchDescricao = filterDescricao === '' || decryptedDescricao.toLowerCase().includes(filterDescricao.toLowerCase());
         const matchCardName = filterCardName === 'todos' || (cardInfo && cardInfo.card_name === filterCardName);
         const matchCardLastFour = filterCardLastFour === 'todos' || (cardInfo && cardInfo.last_four_digits === filterCardLastFour);
 
-        return matchDate && matchPaymentMethod && matchCategoria && matchDescricao && matchCardName && matchCardLastFour;
+        return matchDate && matchCategoria && matchDescricao && matchCardName && matchCardLastFour;
     });
-  }, [transactions, cards, filterPaymentMethod, filterCategoria, filterDescricao, filterCardName, filterCardLastFour, date, decrypt]);
+  }, [transactions, cards, activeTab, filterPaymentMethod, filterCategoria, filterDescricao, filterCardName, filterCardLastFour, date, decrypt]);
 
   const handleExportCSV = () => {
-    // ... (lógica de exportação permanece a mesma)
+    // ...
   };
 
   if (loading) return <Layout><div className="text-center py-12">Carregando...</div></Layout>;
@@ -160,44 +181,63 @@ export default function Transactions() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 p-4 border rounded-lg bg-card">
-          <div className="relative">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="todos">Todas</TabsTrigger>
+            <TabsTrigger value="receita">Receitas</TabsTrigger>
+            <TabsTrigger value="despesa">Despesas</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 border rounded-lg bg-card">
+          <div className="relative lg:col-span-1">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Filtrar por descrição..." className="pl-8" value={filterDescricao} onChange={(e) => setFilterDescricao(e.target.value)} />
           </div>
-          <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
-            <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Tipos</SelectItem>
-              <SelectItem value="receita">Receita</SelectItem>
-              <SelectItem value="despesa">Despesa</SelectItem>
-              <SelectItem value="cartao">Cartão de Crédito</SelectItem>
-            </SelectContent>
-          </Select>
+          
+          {activeTab === 'despesa' && (
+            <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+              <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Métodos</SelectItem>
+                <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="pix">Pix</SelectItem>
+                <SelectItem value="cartao">Cartão de Crédito</SelectItem>
+                <SelectItem value="despesa">Outras</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={filterCategoria} onValueChange={setFilterCategoria}>
             <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               {uniqueCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterCardName} onValueChange={(value) => { setFilterCardName(value); setFilterCardLastFour('todos'); }}>
-            <SelectTrigger><SelectValue placeholder="Cartão" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Cartões</SelectItem>
-              {uniqueCardNames.map(name => name !== 'todos' && <SelectItem key={name} value={name}>{name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterCardLastFour} onValueChange={setFilterCardLastFour} disabled={filterCardName === 'todos'}>
-            <SelectTrigger><SelectValue placeholder="Final do Cartão" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Finais</SelectItem>
-              {cards.filter(card => card.card_name === filterCardName).map(card => (
-                <SelectItem key={card.id} value={card.last_four_digits}>
-                  {card.last_four_digits}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+          {(activeTab === 'todos' || activeTab === 'despesa') && (
+            <>
+              <Select value={filterCardName} onValueChange={(value) => { setFilterCardName(value); setFilterCardLastFour('todos'); }}>
+                <SelectTrigger><SelectValue placeholder="Cartão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Cartões</SelectItem>
+                  {uniqueCardNames.map(name => name !== 'todos' && <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterCardLastFour} onValueChange={setFilterCardLastFour} disabled={filterCardName === 'todos'}>
+                <SelectTrigger><SelectValue placeholder="Final do Cartão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Finais</SelectItem>
+                  {cards.filter(card => card.card_name === filterCardName).map(card => (
+                    <SelectItem key={card.id} value={card.last_four_digits}>
+                      {card.last_four_digits}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+
           <Popover>
             <PopoverTrigger asChild>
               <Button variant={"outline"} className="w-full justify-start text-left font-normal">
@@ -227,15 +267,15 @@ export default function Transactions() {
             </TableHeader>
             <TableBody>
               {filteredTransactions.map((transaction) => {
+                  const decryptedTipo = getDecryptedText(transaction.tipo);
                   const decryptedPaymentMethod = getDecryptedText(transaction.payment_method);
-                  const tipo = decryptedPaymentMethod === 'receita' ? 'receita' : 'despesa';
                   const cardInfo = cards.find(c => c.id === transaction.card_id);
 
                   return (
                   <TableRow key={transaction.id}>
                     <TableCell>{new Date(transaction.data + 'T00:00:00').toLocaleDateString('pt-BR')}</TableCell>
                     <TableCell>
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${tipo === 'receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${decryptedTipo === 'receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                             {decryptedPaymentMethod === 'cartao' && <CreditCardIcon className="h-3 w-3 mr-1.5" />}
                             {decryptedPaymentMethod}
                         </span>
@@ -256,7 +296,7 @@ export default function Transactions() {
                         '-'
                       )}
                     </TableCell>
-                    <TableCell className={tipo === 'receita' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                    <TableCell className={decryptedTipo === 'receita' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getNumericValue(transaction.valor))}
                     </TableCell>
                     <TableCell>{getDecryptedText(transaction.recorrencia)}</TableCell>

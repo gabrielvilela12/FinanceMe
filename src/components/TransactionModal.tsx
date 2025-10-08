@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,9 @@ interface TransactionModalProps {
 export default function TransactionModal({ open, onClose, transaction, onSuccess }: TransactionModalProps) {
   const { encrypt, decrypt, user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'receita' | 'despesa' | 'cartao'>('despesa');
+  
+  const [tipo, setTipo] = useState<'receita' | 'despesa'>('despesa');
+  const [paymentMethod, setPaymentMethod] = useState<'dinheiro' | 'pix' | 'cartao' | 'despesa'>('dinheiro');
   const [categoria, setCategoria] = useState('');
   const [valor, setValor] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -38,15 +40,18 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
   const [isIndefinite, setIsIndefinite] = useState(true);
   const [monthlyRepetitions, setMonthlyRepetitions] = useState<string>('12');
 
-
   useEffect(() => {
     if (open) {
       fetchCards();
       if (transaction) {
-        let decryptedPaymentMethod = 'despesa';
-        try { decryptedPaymentMethod = decrypt(transaction.payment_method); } catch {}
+        const decryptedTipo = decrypt(transaction.tipo) as 'receita' | 'despesa';
+        const decryptedPaymentMethod = decrypt(transaction.payment_method);
 
-        setPaymentMethod(decryptedPaymentMethod as any);
+        setTipo(decryptedTipo);
+        if (decryptedTipo === 'despesa') {
+            setPaymentMethod(decryptedPaymentMethod as any);
+        }
+
         setCategoria(transaction.categoria ? decrypt(transaction.categoria) : '');
         setValor(transaction.valor ? decrypt(transaction.valor) : '');
         setDescricao(transaction.descricao ? decrypt(transaction.descricao).replace(/\s\(\d+\/\d+\)$/, '').trim() : '');
@@ -59,8 +64,8 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
         setIsIndefinite(!transaction.installments);
         setMonthlyRepetitions(transaction.installments?.toString() || '12');
       } else {
-        // Reset state for new transaction
-        setPaymentMethod('despesa');
+        setTipo('despesa');
+        setPaymentMethod('dinheiro');
         setCategoria('');
         setValor('');
         setDescricao('');
@@ -115,10 +120,12 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
       if (paymentMethod === 'cartao' && !selectedCard) { throw new Error('Selecione um cartão de crédito.'); }
       
       if (transaction && getDecryptedText(transaction.recorrencia) !== 'unica') {
-          toast({ title: 'Ação não permitida', description: 'Use o botão "Encerrar Recorrência" para parar as repetições. Não é possível alterar os detalhes de uma transação recorrente.', variant: 'destructive' });
+          toast({ title: 'Ação não permitida', description: 'Use o botão "Encerrar Recorrência" para parar as repetições.', variant: 'destructive' });
           setLoading(false);
           return;
       }
+
+      const finalPaymentMethod = tipo === 'receita' ? 'receita' : paymentMethod;
 
       if (recorrencia === 'diaria' && !transaction) {
         const repetitions = parseInt(dailyRepetitions, 10) || 1;
@@ -127,8 +134,8 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
           const transactionDate = addDays(new Date(data), i);
           transactionsToInsert.push({
             user_id: user.id,
-            tipo: encrypt(paymentMethod === 'receita' ? 'receita' : 'despesa'),
-            payment_method: encrypt(paymentMethod),
+            tipo: encrypt(tipo),
+            payment_method: encrypt(finalPaymentMethod),
             categoria: encrypt(categoria.trim()),
             valor: encrypt(parsedValue.toString()),
             descricao: encrypt(`${descricao.trim()} (${i + 1}/${repetitions})`),
@@ -166,8 +173,8 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
       } else {
         const transactionData = {
           user_id: user.id,
-          tipo: encrypt(paymentMethod === 'receita' ? 'receita' : 'despesa'),
-          payment_method: encrypt(paymentMethod),
+          tipo: encrypt(tipo),
+          payment_method: encrypt(finalPaymentMethod),
           card_id: paymentMethod === 'cartao' ? selectedCard : null,
           categoria: encrypt(categoria.trim()),
           valor: encrypt(parsedValue.toString()),
@@ -210,116 +217,119 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      {/* LARGURA DO MODAL AUMENTADA AQUI */}
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle>{transaction ? 'Editar Transação' : 'Nova Transação'}</DialogTitle>
           <DialogDescription>Preencha os detalhes da sua movimentação financeira.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Método de Pagamento</Label>
-            <Select value={paymentMethod} onValueChange={(value: 'receita' | 'despesa' | 'cartao') => setPaymentMethod(value)}>
-              <SelectTrigger id="paymentMethod"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="despesa">Despesa</SelectItem>
-                <SelectItem value="cartao">Cartão de Crédito</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
-          {paymentMethod === 'cartao' && (
-            <>
+        {/* ÁREA DE ROLAGEM COM ESPAÇAMENTO INTERNO PARA CORRIGIR O PROBLEMA DO FOCO */}
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="transaction-form" onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="card">Cartão</Label>
-                <Select value={selectedCard} onValueChange={setSelectedCard} required>
-                  <SelectTrigger id="card"><SelectValue placeholder="Selecione um cartão" /></SelectTrigger>
+                <Label htmlFor="tipo">Tipo</Label>
+                <Select value={tipo} onValueChange={(value: 'receita' | 'despesa') => setTipo(value)}>
+                  <SelectTrigger id="tipo"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {cards.map(card => (
-                      <SelectItem key={card.id} value={card.id}>{card.card_name} (final {card.last_four_digits})</SelectItem>
-                    ))}
+                    <SelectItem value="receita">Receita</SelectItem>
+                    <SelectItem value="despesa">Despesa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              {tipo === 'despesa' && (
                 <div className="space-y-2">
-                  <Label htmlFor="installments">Parcelas</Label>
-                  <Input id="installments" type="number" min="1" value={installments} onChange={(e) => setInstallments(parseInt(e.target.value, 10) || 1)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="interestRate">Juros (%)</Label>
-                  <Input id="interestRate" type="number" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} placeholder="Ex: 1.99" disabled={installments <= 1} />
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="categoria">Categoria</Label>
-            <Input id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ex: Alimentação, Salário" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="valor">{paymentMethod === 'cartao' ? 'Valor Total (R$)' : 'Valor (R$)'}</Label>
-            <Input id="valor" type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0.00" required />
-          </div>
-
-          {paymentMethod === 'cartao' && installments > 1 && valor && (
-            <div className="text-sm text-muted-foreground border-t pt-4 mt-4 space-y-2">
-              <div className="flex justify-between">
-                <span>Total com juros:</span>
-                <span className="font-medium">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalValue)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Valor da parcela:</span>
-                <span className="font-medium">{installments}x de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(installmentValue)}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="data">Data</Label>
-            <Input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Recorrência</Label>
-            <Select value={recorrencia} onValueChange={setRecorrencia} disabled={paymentMethod === 'cartao' || !!transaction}>
-              <SelectTrigger id="recorrencia"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unica">Única</SelectItem>
-                <SelectItem value="mensal">Mensal</SelectItem>
-                <SelectItem value="diaria">Diária</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {recorrencia === 'diaria' && !transaction && (
-            <div className="space-y-2">
-              <Label htmlFor="dailyRepetitions">Repetir por quantos dias?</Label>
-              <Input id="dailyRepetitions" type="number" min="1" value={dailyRepetitions} onChange={(e) => setDailyRepetitions(e.target.value)} />
-            </div>
-          )}
-
-          {recorrencia === 'mensal' && !transaction && (
-            <div className="space-y-4 rounded-md border p-4">
-              <div className="flex items-center space-x-2">
-                <Switch id="indefinite-switch" checked={isIndefinite} onCheckedChange={setIsIndefinite} />
-                <Label htmlFor="indefinite-switch">Duração Indefinida</Label>
-              </div>
-              {!isIndefinite && (
-                <div className="space-y-2">
-                  <Label htmlFor="monthlyRepetitions">Número de Meses</Label>
-                  <Input id="monthlyRepetitions" type="number" min="1" value={monthlyRepetitions} onChange={(e) => setMonthlyRepetitions(e.target.value)} />
+                  <Label htmlFor="paymentMethod">Método de Pagamento</Label>
+                  <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                    <SelectTrigger id="paymentMethod"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="pix">Pix</SelectItem>
+                      <SelectItem value="cartao">Cartão de Crédito</SelectItem>
+                      <SelectItem value="despesa">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
-            </div>
-          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="descricao">Descrição (opcional)</Label>
-            <Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Detalhes da transação" rows={3} />
-          </div>
-          <div className="flex justify-between items-center gap-2 pt-4">
+              {tipo === 'despesa' && paymentMethod === 'cartao' && (
+                <div className="space-y-4 rounded-md border p-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="card">Cartão</Label>
+                    <Select value={selectedCard} onValueChange={setSelectedCard} required>
+                      <SelectTrigger id="card"><SelectValue placeholder="Selecione um cartão" /></SelectTrigger>
+                      <SelectContent>
+                        {cards.map(card => (
+                          <SelectItem key={card.id} value={card.id}>{card.card_name} (final {card.last_four_digits})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="installments">Parcelas</Label>
+                      <Input id="installments" type="number" min="1" value={installments} onChange={(e) => setInstallments(parseInt(e.target.value, 10) || 1)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="interestRate">Juros (%)</Label>
+                      <Input id="interestRate" type="number" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} placeholder="Ex: 1.99" disabled={installments <= 1} />
+                    </div>
+                  </div>
+                  {installments > 1 && valor && (
+                      <div className="text-sm text-muted-foreground pt-2 space-y-1">
+                        <div className="flex justify-between"><span>Total c/ juros:</span><span className="font-medium">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalValue)}</span></div>
+                        <div className="flex justify-between"><span>Parcela:</span><span className="font-medium">{installments}x de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(installmentValue)}</span></div>
+                      </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="categoria">Categoria</Label>
+                <Input id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ex: Alimentação, Salário" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="valor">Valor (R$)</Label>
+                <Input id="valor" type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0.00" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="data">Data</Label>
+                <Input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Recorrência</Label>
+                <Select value={recorrencia} onValueChange={setRecorrencia} disabled={(tipo === 'despesa' && paymentMethod === 'cartao') || !!transaction}>
+                  <SelectTrigger id="recorrencia"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unica">Única</SelectItem>
+                    <SelectItem value="mensal">Mensal</SelectItem>
+                    <SelectItem value="diaria">Diária</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {recorrencia === 'diaria' && !transaction && (
+                <div className="space-y-2"><Label htmlFor="dailyRepetitions">Repetir por quantos dias?</Label><Input id="dailyRepetitions" type="number" min="1" value={dailyRepetitions} onChange={(e) => setDailyRepetitions(e.target.value)} /></div>
+              )}
+
+              {recorrencia === 'mensal' && !transaction && (
+                <div className="space-y-4 rounded-md border p-4">
+                  <div className="flex items-center space-x-2"><Switch id="indefinite-switch" checked={isIndefinite} onCheckedChange={setIsIndefinite} /><Label htmlFor="indefinite-switch">Duração Indefinida</Label></div>
+                  {!isIndefinite && (<div className="space-y-2"><Label htmlFor="monthlyRepetitions">Número de Meses</Label><Input id="monthlyRepetitions" type="number" min="1" value={monthlyRepetitions} onChange={(e) => setMonthlyRepetitions(e.target.value)} /></div>)}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="descricao">Descrição (opcional)</Label>
+                <Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Detalhes da transação" rows={3} />
+              </div>
+          </form>
+        </div>
+
+        <DialogFooter className="p-6 pt-4 border-t">
+          <div className="flex justify-between items-center w-full">
             <div>
               {transaction && getDecryptedText(transaction.recorrencia) === 'mensal' && (
                 <Button type="button" variant="destructive" onClick={handleEndRecurrence} disabled={loading}>
@@ -329,10 +339,12 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button type="submit" disabled={loading}>{loading ? 'Salvando...' : 'Salvar'}</Button>
+              <Button type="submit" form="transaction-form" disabled={loading}>
+                {loading ? 'Salvando...' : 'Salvar'}
+              </Button>
             </div>
           </div>
-        </form>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

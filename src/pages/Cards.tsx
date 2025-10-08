@@ -1,3 +1,5 @@
+// gabrielvilela12/financeme/FinanceMe-6f8279cdb4ab871580606730d3580777b0e78c31/src/pages/Cards.tsx
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import Layout from '@/components/Layout';
@@ -85,7 +87,7 @@ export default function Cards() {
     setEditingCard(card);
     setCardName(card.card_name);
     setLastFourDigits(card.last_four_digits);
-    setLimit(card.limit.toString());
+    setLimit(card.limite_gastos.toString()); // ALTERADO DE card.limit PARA card.limite_gastos
     setClosingDay(card.closing_day.toString());
     setDueDay(card.due_day.toString());
     setIsModalOpen(true);
@@ -125,7 +127,7 @@ export default function Cards() {
       user_id: user.id,
       card_name: cardName,
       last_four_digits: lastFourDigits,
-      limite_gastos: parsedLimit,
+      limite_gastos: parsedLimit, // ESTA LINHA ESTÁ CORRETA
       closing_day: parsedClosingDay,
       due_day: parsedDueDay,
     };
@@ -186,7 +188,8 @@ export default function Cards() {
                   <TableRow key={card.id}>
                     <TableCell className="font-medium">{card.card_name}</TableCell>
                     <TableCell>**** {card.last_four_digits}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.limit)}</TableCell>
+                    {/* ALTERADO DE card.limit PARA card.limite_gastos */}
+                    <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.limite_gastos)}</TableCell>
                     <TableCell>Dia {card.closing_day}</TableCell>
                     <TableCell>Dia {card.due_day}</TableCell>
                     <TableCell className="text-right">

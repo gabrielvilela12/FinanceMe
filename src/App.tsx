@@ -15,9 +15,12 @@ import Profile from "./pages/Profile";
 import Cards from "./pages/Cards";
 import Installments from "./pages/Installments";
 import Projections from "./pages/Projections"; // Importar a nova página
+import Agenda from "./pages/Agenda"; // IMPORTAR A NOVA PÁGINA
+
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UpdatePassword from "./pages/UpdatePassword";
+
 
 const queryClient = new QueryClient();
 
@@ -42,6 +45,8 @@ const App = () => (
             <Route path="/projections" element={<ProtectedRoute><Projections /></ProtectedRoute>} /> {/* Adicionar a nova rota */}
             <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+
             
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, CreditCard as CreditCardIcon, Landmark, LineChart } from 'lucide-react'; // Adicionar LineChart
+import { DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, CreditCard as CreditCardIcon, Landmark, LineChart, CalendarDays } from 'lucide-react'; // Ícone CalendarDays adicionado
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -36,6 +36,11 @@ const NavContent = () => {
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/projections')}>
         <LineChart className="h-4 w-4 mr-2" />
         Projeções
+      </Button>
+      {/* BOTÃO DA AGENDA ADICIONADO AQUI */}
+      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/agenda')}>
+        <CalendarDays className="h-4 w-4 mr-2" />
+        Agenda
       </Button>
       <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/configuracoes')}>
         <Settings className="h-4 w-4 mr-2" />

@@ -50,6 +50,14 @@ All colors MUST be HSL.
     --input: 0 0% 20%;
     --ring: 142 76% 36%;
   }
+
+  /* Adicione estas classes ao final do arquivo */
+.day-expense .rdp-day-content {
+  border-bottom: 2px solid hsl(var(--destructive));
+}
+.day-income .rdp-day-content {
+  border-bottom: 2px solid hsl(var(--primary));
+}
 }
 
 @layer base {
@@ -61,3 +69,4 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+

@@ -112,7 +112,8 @@ export default function Installments() {
                 >
                   <CardHeader>
                     <div className="flex justify-between items-start gap-2">
-                      <CardTitle className="truncate pr-2">{baseDescription}</CardTitle>
+                      {/* LINHA ALTERADA: Reduzido o tamanho da fonte do título */}
+                      <CardTitle className="truncate pr-2 text-lg font-semibold">{baseDescription}</CardTitle>
                       <Badge variant="outline">{getDecryptedText(first.categoria)}</Badge>
                     </div>
                   </CardHeader>
