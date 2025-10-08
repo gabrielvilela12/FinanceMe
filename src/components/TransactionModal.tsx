@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Transaction, CreditCard } from '@/types';
+import { Transaction, CreditCard, Category } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { addMonths, format, addDays } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
 import { useGroup } from '@/contexts/GroupContext';
+import { Combobox } from './ui/combobox';
 
 interface TransactionModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
   const [data, setData] = useState('');
   const [recorrencia, setRecorrencia] = useState<string>('unica');
   const [cards, setCards] = useState<CreditCard[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCard, setSelectedCard] = useState<string | undefined>(undefined);
   const [installments, setInstallments] = useState<number>(1);
   const [interestRate, setInterestRate] = useState<string>('');
@@ -42,9 +44,25 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
   const [isIndefinite, setIsIndefinite] = useState(true);
   const [monthlyRepetitions, setMonthlyRepetitions] = useState<string>('12');
 
+  const fetchCardsAndCategories = async () => {
+    if (!user) return;
+    
+    const { data: cardsData } = await supabase.from('credit_cards').select('*').eq('user_id', user.id);
+    if (cardsData) setCards(cardsData);
+
+    let query = supabase.from('categories').select('*');
+    if (selectedGroup) {
+      query = query.eq('group_id', selectedGroup);
+    } else {
+      query = query.is('group_id', null).eq('user_id', user.id);
+    }
+    const { data: categoriesData } = await query;
+    if (categoriesData) setCategories(categoriesData);
+  };
+  
   useEffect(() => {
     if (open) {
-      fetchCards();
+      fetchCardsAndCategories();
       if (transaction) {
         const decryptedTipo = decrypt(transaction.tipo) as 'receita' | 'despesa';
         const decryptedPaymentMethod = decrypt(transaction.payment_method);
@@ -54,7 +72,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
             setPaymentMethod(decryptedPaymentMethod as any);
         }
 
-        setCategoria(transaction.categoria ? decrypt(transaction.categoria) : '');
+        setCategoria(transaction.categoria); // Categoria já é o nome criptografado
         setValor(transaction.valor ? decrypt(transaction.valor) : '');
         setDescricao(transaction.descricao ? decrypt(transaction.descricao) : '');
         setData(transaction.data);
@@ -83,12 +101,34 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
     }
   }, [transaction, open, decrypt]);
 
-  const fetchCards = async () => {
-    if (!user) return;
-    const { data, error } = await supabase.from('credit_cards').select('*').eq('user_id', user.id);
-    if (data) setCards(data);
-  };
+  const handleCreateCategory = async (newCategoryName: string) => {
+    if (!user || !newCategoryName.trim()) return;
 
+    const encryptedName = encrypt(newCategoryName.trim());
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .insert({
+        user_id: user.id,
+        name: encryptedName,
+        group_id: selectedGroup,
+      })
+      .select()
+      .single();
+
+    if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+            toast({ title: 'Categoria já existe', variant: 'destructive' });
+        } else {
+            toast({ title: 'Erro ao criar categoria', description: error.message, variant: 'destructive' });
+        }
+    } else if (data) {
+        toast({ title: 'Categoria criada!', description: `"${newCategoryName}" foi adicionada.` });
+        setCategories(prev => [...prev, data]);
+        setCategoria(data.name); // Seleciona a nova categoria
+    }
+  };
+  
   const handleEndRecurrence = async () => {
     if (!transaction) return;
     setLoading(true);
@@ -139,7 +179,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
             user_id: user.id,
             tipo: encrypt(tipo),
             payment_method: encrypt(finalPaymentMethod),
-            categoria: encrypt(categoria.trim()),
+            categoria: categoria, // Categoria já é o nome criptografado
             valor: encrypt(parsedValue.toString()),
             descricao: encrypt(descricao.trim()),
             data: format(transactionDate, 'yyyy-MM-dd'),
@@ -162,9 +202,9 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
             tipo: encrypt('despesa'),
             payment_method: encrypt('cartao'),
             card_id: selectedCard,
-            categoria: encrypt(categoria.trim()),
+            categoria: categoria, // Categoria já é o nome criptografado
             valor: encrypt(installmentValue.toFixed(2)),
-            descricao: encrypt(descricao.trim()),
+            descricao: encrypt(`${descricao.trim()} ${i + 1}/${installments}`),
             data: format(installmentDate, 'yyyy-MM-dd'),
             recorrencia: encrypt('unica'),
             installments,
@@ -181,7 +221,7 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
           tipo: encrypt(tipo),
           payment_method: encrypt(finalPaymentMethod),
           card_id: paymentMethod === 'cartao' ? selectedCard : null,
-          categoria: encrypt(categoria.trim()),
+          categoria: categoria, // Categoria já é o nome criptografado
           valor: encrypt(parsedValue.toString()),
           descricao: descricao ? encrypt(descricao.trim()) : null,
           data,
@@ -220,6 +260,11 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
       return text;
     }
   }
+
+  const categoryOptions = categories.map(c => ({
+    value: c.name,
+    label: decrypt(c.name),
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -291,7 +336,15 @@ export default function TransactionModal({ open, onClose, transaction, onSuccess
               
               <div className="space-y-2">
                 <Label htmlFor="categoria">Categoria</Label>
-                <Input id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ex: Alimentação, Salário" required />
+                <Combobox
+                  options={categoryOptions}
+                  value={categoria}
+                  onChange={setCategoria}
+                  onCreate={handleCreateCategory}
+                  placeholder="Selecione ou crie uma categoria"
+                  searchPlaceholder="Pesquisar ou criar..."
+                  emptyMessage="Nenhuma categoria encontrada."
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="valor">Valor (R$)</Label>

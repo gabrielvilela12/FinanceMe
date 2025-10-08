@@ -26,6 +26,8 @@ import Reports from "./pages/Reports";
 import Groups from "./pages/Groups";
 import GroupManagement from "./pages/GroupManagement";
 import Invites from "./pages/Invites";
+import Categories from "./pages/Categories";
+import Help from "./pages/Help"; // <-- Importe a nova página de Ajuda
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UpdatePassword from "./pages/UpdatePassword";
@@ -49,12 +51,10 @@ const App = () => (
               <Route path="/update-password" element={<UpdatePassword />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/transacoes" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-              <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
               <Route path="/installments" element={<ProtectedRoute><Installments /></ProtectedRoute>} />
               <Route path="/projections" element={<ProtectedRoute><Projections /></ProtectedRoute>} />
               <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
               <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-              <Route path="/metas" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
               <Route path="/orcamentos" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
               <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
               <Route path="/grupos" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
@@ -62,6 +62,7 @@ const App = () => (
               <Route path="/convites" element={<ProtectedRoute><Invites /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/ajuda" element={<ProtectedRoute><Help /></ProtectedRoute>} /> {/* <-- Adicione a nova rota */}
               
               <Route path="*" element={<NotFound />} />
             </Routes>

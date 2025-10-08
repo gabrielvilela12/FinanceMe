@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -14,9 +13,9 @@ import { Plus, Pencil, Trash2, Target } from 'lucide-react';
 import GoalModal from '@/components/GoalModal';
 import { format, parseISO } from 'date-fns';
 
-export default function Goals() {
+export default function GoalsSettings() {
   const { user } = useAuth();
-  const { selectedGroup, addRefreshListener } = useGroup();
+  const { selectedGroup } = useGroup();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,11 +42,9 @@ export default function Goals() {
 
   useEffect(() => {
     if (user) {
-      const removeListener = addRefreshListener(fetchGoals);
       fetchGoals();
-      return () => removeListener();
     }
-  }, [user, selectedGroup, addRefreshListener]);
+  }, [user, selectedGroup]);
 
   const handleAddNew = () => {
     setEditingGoal(null);
@@ -68,20 +65,19 @@ export default function Goals() {
       fetchGoals();
     }
   };
-
+  
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Minhas Metas</h2>
-            <p className="text-muted-foreground">Crie e acompanhe seus objetivos financeiros.</p>
-          </div>
-          <Button onClick={handleAddNew}>
-            <Plus className="mr-2 h-4 w-4" /> Nova Meta
-          </Button>
+    <Card>
+      <CardHeader className="flex flex-row justify-between items-center">
+        <div>
+          <CardTitle>Minhas Metas</CardTitle>
+          <CardDescription>Crie e acompanhe seus objetivos financeiros.</CardDescription>
         </div>
-        
+        <Button onClick={handleAddNew}>
+          <Plus className="mr-2 h-4 w-4" /> Nova Meta
+        </Button>
+      </CardHeader>
+      <CardContent>
         {loading ? (
           <p>Carregando metas...</p>
         ) : goals.length === 0 ? (
@@ -127,14 +123,13 @@ export default function Goals() {
             })}
           </div>
         )}
-      </div>
-
-      <GoalModal
+      </CardContent>
+       <GoalModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         goal={editingGoal}
         onSuccess={fetchGoals}
       />
-    </Layout>
+    </Card>
   );
 }

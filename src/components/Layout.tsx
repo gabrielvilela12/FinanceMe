@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   DollarSign, LayoutDashboard, Receipt, Settings, User, LogOut, PanelLeft, 
   CreditCard as CreditCardIcon, Landmark, LineChart, CalendarDays, BarChart, 
-  Target, Wallet, FileText, Users, Mail 
+  Target, Wallet, FileText, Users, Mail, Tag, LifeBuoy
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,65 +20,80 @@ interface LayoutProps {
 
 const NavContent = () => {
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: 'Logout realizado',
+      description: 'Até logo!'
+    });
+    navigate('/auth');
+  };
+
   return (
-    <nav className="flex flex-col space-y-2 pt-4">
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/dashboard')}>
-        <LayoutDashboard className="h-4 w-4 mr-2" />
-        Dashboard
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/transacoes')}>
-        <Receipt className="h-4 w-4 mr-2" />
-        Transações
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/cards')}>
-        <CreditCardIcon className="h-4 w-4 mr-2" />
-        Cartões
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/installments')}>
-        <Landmark className="h-4 w-4 mr-2" />
-        Parcelamentos
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/projections')}>
-        <LineChart className="h-4 w-4 mr-2" />
-        Projeções
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/agenda')}>
-        <CalendarDays className="h-4 w-4 mr-2" />
-        Agenda
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/insights')}>
-        <BarChart className="h-4 w-4 mr-2" />
-        Insights
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/metas')}>
-        <Target className="h-4 w-4 mr-2" />
-        Metas
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/orcamentos')}>
-        <Wallet className="h-4 w-4 mr-2" />
-        Orçamentos
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/relatorios')}>
-        <FileText className="h-4 w-4 mr-2" />
-        Relatórios
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/grupos')}>
-        <Users className="h-4 w-4 mr-2" />
-        Grupos
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/convites')}>
-        <Mail className="h-4 w-4 mr-2" />
-        Convites
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/configuracoes')}>
-        <Settings className="h-4 w-4 mr-2" />
-        Configurações
-      </Button>
-      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/perfil')}>
-        <User className="h-4 w-4 mr-2" />
-        Perfil
-      </Button>
-    </nav>
+    <div className="flex flex-col justify-between h-full">
+      <nav className="flex flex-col space-y-2 pt-4">
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/dashboard')}>
+          <LayoutDashboard className="h-4 w-4 mr-2" />
+          Dashboard
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/transacoes')}>
+          <Receipt className="h-4 w-4 mr-2" />
+          Transações
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/installments')}>
+          <Landmark className="h-4 w-4 mr-2" />
+          Parcelamentos
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/projections')}>
+          <LineChart className="h-4 w-4 mr-2" />
+          Projeções
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/agenda')}>
+          <CalendarDays className="h-4 w-4 mr-2" />
+          Agenda
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/insights')}>
+          <BarChart className="h-4 w-4 mr-2" />
+          Insights
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/orcamentos')}>
+          <Wallet className="h-4 w-4 mr-2" />
+          Orçamentos
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/relatorios')}>
+          <FileText className="h-4 w-4 mr-2" />
+          Relatórios
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/grupos')}>
+          <Users className="h-4 w-4 mr-2" />
+          Grupos
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/convites')}>
+          <Mail className="h-4 w-4 mr-2" />
+          Convites
+        </Button>
+      </nav>
+
+      <nav className="flex flex-col space-y-2 pt-4 border-t">
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/configuracoes')}>
+          <Settings className="h-4 w-4 mr-2" />
+          Configurações
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/perfil')}>
+          <User className="h-4 w-4 mr-2" />
+          Perfil
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/ajuda')}>
+          <LifeBuoy className="h-4 w-4 mr-2" />
+          Ajuda
+        </Button>
+        <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
+          <LogOut className="h-4 w-4 mr-2" />
+          Sair
+        </Button>
+      </nav>
+    </div>
   );
 };
 
@@ -91,15 +106,6 @@ export default function Layout({ children }: LayoutProps) {
       navigate('/');
     }
   }, [session, loading, navigate]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast({
-      title: 'Logout realizado',
-      description: 'Até logo!'
-    });
-    navigate('/auth');
-  };
   
   if (loading || !session) {
     return (
@@ -121,29 +127,26 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="sr-only">Abrir menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-4">
+              <SheetContent side="left" className="p-4 w-[250px] sm:w-[300px]">
                 <NavContent />
               </SheetContent>
             </Sheet>
 
             <div className="flex items-center gap-2">
               <DollarSign className="h-6 w-6 text-primary" />
-              <h1 className="text-xl font-bold">FinanceMe</h1>
+              <h1 className="text-xl font-bold text-primary">FinanceMe</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <ViewSwitcher />
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Sair</span>
-            </Button>
+            {/* O botão de sair foi movido para a barra lateral, mas pode ser mantido aqui se preferir */}
           </div>
         </div>
       </header>
 
       <div className="flex">
-        <aside className="hidden md:flex md:w-64 flex-col min-h-[calc(100vh-73px)] border-r bg-card p-4">
+        <aside className="hidden md:flex md:w-64 flex-col h-[calc(100vh-69px)] border-r bg-card p-4 sticky top-[69px]">
           <NavContent />
         </aside>
 
