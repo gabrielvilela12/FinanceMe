@@ -172,7 +172,36 @@ export default function CardsSettings() {
             <DialogDescription>Preencha as informações do seu cartão de crédito.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            {/* ... (conteúdo do formulário do modal) */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cardName" className="text-right">
+                Nome
+              </Label>
+              <Input id="cardName" value={cardName} onChange={(e) => setCardName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="lastFourDigits" className="text-right">
+                Final
+              </Label>
+              <Input id="lastFourDigits" value={lastFourDigits} onChange={(e) => setLastFourDigits(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="limit" className="text-right">
+                Limite
+              </Label>
+              <Input id="limit" value={limit} onChange={(e) => setLimit(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="closingDay" className="text-right">
+                Fechamento
+              </Label>
+              <Input id="closingDay" value={closingDay} onChange={(e) => setClosingDay(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="dueDay" className="text-right">
+                Vencimento
+              </Label>
+              <Input id="dueDay" value={dueDay} onChange={(e) => setDueDay(e.target.value)} className="col-span-3" />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
