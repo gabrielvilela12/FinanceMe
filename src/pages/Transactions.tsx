@@ -1,101 +1,107 @@
-// src/pages/Dashboard.tsx
+// src/pages/Transactions.tsx
 
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../integrations/supabase/client';
-import Layout from '../components/Layout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import { Calendar } from '../components/ui/calendar';
-import { TrendingUp, TrendingDown, DollarSign, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { Transaction } from '../types';
-import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import Layout from '@/components/Layout';
+import TransactionModal from '@/components/TransactionModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Pencil, Trash2, Download, Calendar as CalendarIcon, Search, CreditCard as CreditCardIcon } from 'lucide-react';
+import { Transaction, CreditCard } from '@/types';
+import { toast } from '@/hooks/use-toast';
 import { DateRange } from 'react-day-picker';
-import { format, subMonths, addMonths, startOfToday, isBefore, parseISO, setDate as setDateFn, addDays, differenceInCalendarMonths } from 'date-fns';
-import { useAuth } from '../contexts/AuthContext';
-import { useGroup } from '@/contexts/GroupContext'; // 1. Importar o hook de grupo
-import { getCategoryColor } from '@/lib/colors';
+import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface UpcomingTransaction {
-  nextDate: Date;
-  description: string;
-  value: number;
-  type: 'receita' | 'despesa';
-}
-
-export default function Dashboard() {
+export default function Transactions() {
   const navigate = useNavigate();
   const { user, decrypt } = useAuth();
-  const { selectedGroup, addRefreshListener } = useGroup(); // 2. Obter o grupo selecionado
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: subMonths(new Date(), 1),
-    to: new Date(),
-  });
-  
-  const fetchTransactions = async () => {
-    if (!user) return;
-    setLoading(true);
-    
-    let query = supabase.from('transacoes').select('*');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-    // 3. Adicionar o filtro de grupo à consulta
-    if (selectedGroup) {
-      query = query.eq('group_id', selectedGroup);
-    } else {
-      query = query.is('group_id', null);
+  const [activeTab, setActiveTab] = useState('todos');
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>('todos');
+  const [filterDescricao, setFilterDescricao] = useState<string>('');
+  const [filterCategoria, setFilterCategoria] = useState<string>('Todas');
+  const [filterCardName, setFilterCardName] = useState<string>('todos');
+  const [filterCardLastFour, setFilterCardLastFour] = useState<string>('todos');
+  const [date, setDate] = useState<DateRange | undefined>(undefined);
+
+  useEffect(() => {
+    checkAuth();
+    fetchData();
+    const channel = supabase
+      .channel('transacoes-changes-transactions-page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, fetchData)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // EFEITO ADICIONADO PARA RESETAR O FILTRO DE CATEGORIA AO MUDAR DE ABA
+  useEffect(() => {
+    setFilterCategoria('Todas');
+  }, [activeTab]);
+
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) navigate('/auth');
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    if (!user) {
+        setLoading(false);
+        return;
     }
 
-    const { data, error } = await query.order('data', { ascending: false });
+    const [transactionsRes, cardsRes] = await Promise.all([
+        supabase.from('transacoes').select('*').order('data', { ascending: false }),
+        supabase.from('credit_cards').select('*').eq('user_id', user.id)
+    ]);
 
-    if (error) {
-      console.error("Error fetching transactions:", error);
-    } else if (data) {
-      setTransactions(data as Transaction[]);
+    if (!transactionsRes.error && transactionsRes.data) {
+        setTransactions(transactionsRes.data as Transaction[]);
+    }
+    if (!cardsRes.error && cardsRes.data) {
+        setCards(cardsRes.data as CreditCard[]);
     }
     setLoading(false);
   };
-  
-  useEffect(() => {
-    if (user) {
-      // 4. Usar o listener para recarregar os dados
-      const removeListener = addRefreshListener(fetchTransactions);
-      fetchTransactions(); // Busca inicial
 
-      const channel = supabase
-        .channel('transacoes-changes-dashboard')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, (payload) => {
-            const changedGroupId = payload.new.group_id;
-            if ((selectedGroup && changedGroupId === selectedGroup) || (!selectedGroup && !changedGroupId)) {
-                fetchTransactions();
-            }
-        })
-        .subscribe();
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('transacoes').delete().eq('id', id);
+    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Transação excluída', description: 'Removida com sucesso.' }); fetchData(); }
+  };
 
-      return () => {
-        supabase.removeChannel(channel);
-        removeListener(); // Limpa o listener ao sair
-      };
-    }
-  }, [user, selectedGroup, addRefreshListener]);
-
+  const handleEdit = (transaction: Transaction) => { setEditingTransaction(transaction); setModalOpen(true); };
+  const handleAddNewTransaction = () => { setEditingTransaction(null); setModalOpen(true); };
 
   const getNumericValue = (value: string | number) => {
     if (typeof value === 'number') return value;
     if (!value) return 0;
-    
     let decryptedText = '';
     try {
       decryptedText = decrypt(value);
     } catch {
       decryptedText = value;
     }
-    
     const num = parseFloat(decryptedText);
-    return isNaN(num) ? 0 : num;
+    if (isNaN(num)) {
+        const rawNum = parseFloat(value as string);
+        return isNaN(rawNum) ? 0 : rawNum;
+    }
+    return num;
   };
 
   const getDecryptedText = (text: string | null) => {
@@ -107,105 +113,134 @@ export default function Dashboard() {
     }
   }
 
-  const upcomingTransactions = useMemo<UpcomingTransaction[]>(() => {
-    const today = startOfToday();
-    const thirtyDaysFromNow = addDays(today, 30);
-    const upcoming: UpcomingTransaction[] = [];
-
-    const recurringTransactions = transactions.filter(
-      (t) => getDecryptedText(t.recorrencia) === 'mensal'
-    );
-
-    recurringTransactions.forEach((t) => {
-      const originalDate = parseISO(t.data);
-      let nextDate = setDateFn(today, originalDate.getDate());
-
-      if (isBefore(nextDate, today)) {
-        nextDate = addMonths(nextDate, 1);
-      }
-      
-      const totalMonths = t.installments;
-      const monthsPassed = differenceInCalendarMonths(nextDate, originalDate);
-      
-      if (totalMonths === null || monthsPassed < totalMonths) {
-        if (isBefore(nextDate, thirtyDaysFromNow)) {
-          upcoming.push({
-            nextDate: nextDate,
-            description: getDecryptedText(t.descricao) || getDecryptedText(t.categoria),
-            value: getNumericValue(t.valor),
-            type: getDecryptedText(t.tipo) === 'receita' ? 'receita' : 'despesa',
-          });
-        }
-      }
+  // LÓGICA DE CATEGORIAS ÚNICAS ATUALIZADA
+  const uniqueCategories = useMemo(() => {
+    const filteredByType = transactions.filter(t => {
+      if (activeTab === 'todos') return true;
+      return getDecryptedText(t.tipo) === activeTab;
     });
-    
-    return upcoming.sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
-  }, [transactions, decrypt]);
 
-
-  const filteredTransactions = transactions.filter(t => {
-    const transactionDate = new Date(t.data + 'T00:00:00');
-    const from = date?.from ? new Date(date.from.setHours(0, 0, 0, 0)) : null;
-    const to = date?.to ? new Date(date.to.setHours(23, 59, 59, 999)) : null;
-
-    return (!from || transactionDate >= from) && (!to || transactionDate <= to);
-  });
-
-  const totalReceitas = filteredTransactions
-    .filter(t => getDecryptedText(t.tipo) === 'receita')
-    .reduce((sum, t) => sum + getNumericValue(t.valor), 0);
-
-  const totalDespesas = filteredTransactions
-    .filter(t => getDecryptedText(t.tipo) === 'despesa')
-    .reduce((sum, t) => sum + getNumericValue(t.valor), 0);
-
-  const saldo = totalReceitas - totalDespesas;
-
-  const categoriesData = filteredTransactions
-    .filter(t => getDecryptedText(t.tipo) === 'despesa')
-    .reduce((acc, t) => {
-      const cat = getDecryptedText(t.categoria);
-      if (cat && cat !== "Dado inválido" && cat !== "Dado criptografado") {
-        acc[cat] = (acc[cat] || 0) + getNumericValue(t.valor);
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-  const pieData = Object.entries(categoriesData).map(([name, value]) => ({ name, value }));
-
-  const last6Months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    return d.toISOString().slice(0, 7);
-  });
-
-  const lineData = last6Months.map(month => {
-    const monthTrans = transactions.filter(t => t.data.startsWith(month));
-    const receitas = monthTrans.filter(t => getDecryptedText(t.tipo) === 'receita').reduce((sum, t) => sum + getNumericValue(t.valor), 0);
-    const despesas = monthTrans.filter(t => getDecryptedText(t.tipo) === 'despesa').reduce((sum, t) => sum + getNumericValue(t.valor), 0);
-    return {
-      month: new Date(month + '-02T00:00:00').toLocaleDateString('pt-BR', { month: 'short', timeZone: 'America/Sao_Paulo' }),
-      receitas,
-      despesas
-    };
-  });
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="text-center py-12">Carregando...</div>
-      </Layout>
+    const categories = new Set(
+      filteredByType
+        .map(t => getDecryptedText(t.categoria))
+        .filter(cat => cat && cat.trim())
     );
-  }
+    return ['Todas', ...Array.from(categories)];
+  }, [transactions, decrypt, activeTab]);
+
+
+  const uniqueCardNames = useMemo(() => {
+    const cardNames = new Set(cards.map(c => c.card_name));
+    return ['todos', ...Array.from(cardNames)];
+  }, [cards]);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+        const transactionDate = new Date(t.data + 'T00:00:00');
+        const from = date?.from ? new Date(date.from.setHours(0, 0, 0, 0)) : null;
+        const to = date?.to ? new Date(date.to.setHours(23, 59, 59, 999)) : null;
+        
+        const decryptedTipo = getDecryptedText(t.tipo);
+        const decryptedPaymentMethod = getDecryptedText(t.payment_method);
+        const decryptedCategoria = getDecryptedText(t.categoria);
+        const decryptedDescricao = getDecryptedText(t.descricao);
+        const cardInfo = cards.find(c => c.id === t.card_id);
+
+        if (activeTab === 'receita' && decryptedTipo !== 'receita') return false;
+        if (activeTab === 'despesa' && decryptedTipo !== 'despesa') return false;
+        
+        if (activeTab === 'despesa' && filterPaymentMethod !== 'todos' && decryptedPaymentMethod !== filterPaymentMethod) return false;
+        
+        const matchDate = (!from || transactionDate >= from) && (!to || transactionDate <= to);
+        const matchCategoria = filterCategoria === 'Todas' || decryptedCategoria === filterCategoria;
+        const matchDescricao = filterDescricao === '' || decryptedDescricao.toLowerCase().includes(filterDescricao.toLowerCase());
+        const matchCardName = filterCardName === 'todos' || (cardInfo && cardInfo.card_name === filterCardName);
+        const matchCardLastFour = filterCardLastFour === 'todos' || (cardInfo && cardInfo.last_four_digits === filterCardLastFour);
+
+        return matchDate && matchCategoria && matchDescricao && matchCardName && matchCardLastFour;
+    });
+  }, [transactions, cards, activeTab, filterPaymentMethod, filterCategoria, filterDescricao, filterCardName, filterCardLastFour, date, decrypt]);
+
+  const handleExportCSV = () => {
+    // ...
+  };
+
+  if (loading) return <Layout><div className="text-center py-12">Carregando...</div></Layout>;
 
   return (
     <Layout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-3xl font-bold">Dashboard</h2>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Transações</h2>
+            <p className="text-muted-foreground">Visualize e gerencie suas movimentações.</p>
+          </div>
+          <div className="flex w-full sm:w-auto gap-2">
+            <Button variant="outline" onClick={handleExportCSV} className="w-full sm:w-auto"><Download className="h-4 w-4 mr-2" />Exportar</Button>
+            <Button onClick={handleAddNewTransaction} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="todos">Todas</TabsTrigger>
+            <TabsTrigger value="receita">Receitas</TabsTrigger>
+            <TabsTrigger value="despesa">Despesas</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 border rounded-lg bg-card">
+          <div className="relative lg:col-span-1">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Filtrar por descrição..." className="pl-8" value={filterDescricao} onChange={(e) => setFilterDescricao(e.target.value)} />
+          </div>
+          
+          {activeTab === 'despesa' && (
+            <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
+              <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Métodos</SelectItem>
+                <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="pix">Pix</SelectItem>
+                <SelectItem value="cartao">Cartão de Crédito</SelectItem>
+                <SelectItem value="despesa">Outras</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
+          <Select value={filterCategoria} onValueChange={setFilterCategoria}>
+            <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              {uniqueCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          {(activeTab === 'todos' || activeTab === 'despesa') && (
+            <>
+              <Select value={filterCardName} onValueChange={(value) => { setFilterCardName(value); setFilterCardLastFour('todos'); }}>
+                <SelectTrigger><SelectValue placeholder="Cartão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Cartões</SelectItem>
+                  {uniqueCardNames.map(name => name !== 'todos' && <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterCardLastFour} onValueChange={setFilterCardLastFour} disabled={filterCardName === 'todos'}>
+                <SelectTrigger><SelectValue placeholder="Final do Cartão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Finais</SelectItem>
+                  {cards.filter(card => card.card_name === filterCardName).map(card => (
+                    <SelectItem key={card.id} value={card.last_four_digits}>
+                      {card.last_four_digits}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant={"outline"} className="w-full sm:w-auto justify-start text-left font-normal">
+              <Button variant={"outline"} className="w-full justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {date?.from ? (date.to ? `${format(date.from, "dd/MM/yyyy")} - ${format(date.to, "dd/MM/yyyy")}` : format(date.from, "dd/MM/yyyy")) : <span>Escolha uma data</span>}
               </Button>
@@ -216,76 +251,69 @@ export default function Dashboard() {
           </Popover>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Cards de Saldo, Receitas e Despesas */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Saldo do Período</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
-            <CardContent><div className={`text-2xl font-bold ${saldo >= 0 ? 'text-primary' : 'text-destructive'}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saldo)}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Receitas do Período</CardTitle><TrendingUp className="h-4 w-4 text-primary" /></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalReceitas)}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Despesas do Período</CardTitle><TrendingDown className="h-4 w-4 text-destructive" /></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-destructive">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalDespesas)}</div></CardContent>
-          </Card>
-        </div>
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Cartão</TableHead>
+                <TableHead>Valor</TableHead>
+                <TableHead>Recorrência</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTransactions.map((transaction) => {
+                  const decryptedTipo = getDecryptedText(transaction.tipo);
+                  const decryptedPaymentMethod = getDecryptedText(transaction.payment_method);
+                  const cardInfo = cards.find(c => c.id === transaction.card_id);
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader><CardTitle>Despesas por Categoria</CardTitle></CardHeader>
-              <CardContent>
-                {pieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                        {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={getCategoryColor(entry.name)} />))}
-                      </Pie>
-                      <Tooltip formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <div className="text-center py-12 text-muted-foreground">Nenhuma despesa registrada no período</div>}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle>Evolução (Últimos 6 Meses)</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}><LineChart data={lineData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))} /><Legend /><Line type="monotone" dataKey="receitas" stroke="#00C853" name="Receitas" /><Line type="monotone" dataKey="despesas" stroke="#EF5350" name="Despesas" /></LineChart></ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center"><Clock className="h-4 w-4 mr-2" />Lançamentos Futuros</CardTitle>
-              <CardDescription>Previsão para os próximos 30 dias com base nas suas recorrências.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {upcomingTransactions.length > 0 ? (
-                  upcomingTransactions.map((t, index) => (
-                    <div key={index} className="flex items-center">
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-none">{t.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(t.nextDate, 'dd/MM/yyyy')}
-                        </p>
+                  return (
+                  <TableRow key={transaction.id}>
+                    <TableCell>{new Date(transaction.data + 'T00:00:00').toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${decryptedTipo === 'receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {decryptedPaymentMethod === 'cartao' && <CreditCardIcon className="h-3 w-3 mr-1.5" />}
+                            {decryptedPaymentMethod}
+                        </span>
+                    </TableCell>
+                    <TableCell>{getDecryptedText(transaction.categoria)}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {getDecryptedText(transaction.descricao)}
+                      {transaction.installments && transaction.installments > 1 && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({transaction.current_installment}/{transaction.installments})
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {cardInfo ? (
+                        <span className="text-xs">{cardInfo.card_name} (**** {cardInfo.last_four_digits})</span>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell className={decryptedTipo === 'receita' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getNumericValue(transaction.valor))}
+                    </TableCell>
+                    <TableCell>{getDecryptedText(transaction.recorrencia)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(transaction)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(transaction.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
-                      <div className={`font-medium ${t.type === 'receita' ? 'text-primary' : 'text-destructive'}`}>
-                        {t.type === 'despesa' && '-'}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.value)}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">Nenhuma transação recorrente encontrada para o próximo mês.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    </TableCell>
+                  </TableRow>
+                )})
+              }
+            </TableBody>
+          </Table>
         </div>
       </div>
+      <TransactionModal open={modalOpen} onClose={() => { setModalOpen(false); setEditingTransaction(null); }} transaction={editingTransaction} onSuccess={fetchData} />
     </Layout>
   );
 }

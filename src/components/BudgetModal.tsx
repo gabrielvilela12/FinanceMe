@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGroup } from '@/contexts/GroupContext';
 import { Budget } from '@/types';
 import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,6 +23,7 @@ interface BudgetModalProps {
 
 export default function BudgetModal({ open, onClose, budget, onSuccess, currentMonth }: BudgetModalProps) {
   const { user } = useAuth();
+  const { selectedGroup } = useGroup();
   const [loading, setLoading] = useState(false);
   
   const [categoria, setCategoria] = useState('');
@@ -51,6 +53,7 @@ export default function BudgetModal({ open, onClose, budget, onSuccess, currentM
       categoria,
       valor_orcado: parseFloat(valorOrcado),
       mes: currentMonth,
+      group_id: budget ? budget.group_id : selectedGroup
     };
 
     const { error } = budget

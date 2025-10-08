@@ -42,11 +42,10 @@ export default function Budgets() {
       budgetQuery = budgetQuery.eq('group_id', selectedGroup);
       transQuery = transQuery.eq('group_id', selectedGroup);
     } else {
-      budgetQuery = budgetQuery.is('group_id', null);
-      transQuery = transQuery.is('group_id', null);
+      budgetQuery = budgetQuery.is('group_id', null).eq('user_id', user.id);
+      transQuery = transQuery.is('group_id', null).eq('user_id', user.id);
     }
     
-    // Executando as queries em paralelo
     const [budgetRes, transRes] = await Promise.all([budgetQuery, transQuery]);
 
     if (budgetRes.error) toast({ title: 'Erro ao buscar orçamentos', description: budgetRes.error.message, variant: 'destructive' });
